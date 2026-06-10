@@ -19,6 +19,7 @@ const RECUR_INTERVAL_MS: Record<string, number> = {
   every_1_hour: 3_600_000,
 };
 
+// TODO: Change to dynamic recur intervals handling, more than this
 export const VALID_RECUR_INTERVALS = Object.keys(RECUR_INTERVAL_MS);
 
 export const isValidRecurInterval = (interval: unknown): interval is string => {
