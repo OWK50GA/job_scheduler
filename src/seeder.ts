@@ -53,7 +53,9 @@ const TEMPLATES: JobTemplate[] = [
     priority: 3,
     payloadFn: (i) => ({
       report_type: ["daily", "weekly", "monthly"][i % 3],
-      period_start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      period_start: new Date(
+        Date.now() - 7 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
       period_end: new Date().toISOString(),
       requested_by: `admin${i % 5}@company.com`,
     }),
@@ -109,13 +111,20 @@ function pickTemplate(i: number): JobTemplate {
   return TEMPLATES[0];
 }
 
-const RECUR_INTERVALS = ["every_1_minute", "every_5_minutes", "every_1_hour", null];
+const RECUR_INTERVALS = [
+  "every_1_minute",
+  "every_5_minutes",
+  "every_1_hour",
+  null,
+];
 
 /** Future timestamp between 1 hour and 7 days from now */
 function futureDateMs(): number {
   const oneHour = 60 * 60 * 1000;
   const sevenDays = 7 * 24 * oneHour;
-  return Date.now() + oneHour + Math.floor(Math.random() * (sevenDays - oneHour));
+  return (
+    Date.now() + oneHour + Math.floor(Math.random() * (sevenDays - oneHour))
+  );
 }
 
 // ── seed ──────────────────────────────────────────────────────────────────────
@@ -138,18 +147,19 @@ async function seed() {
     const tmpl = pickTemplate(i);
 
     // ~25% of jobs get a future scheduled_at, the rest run immediately
-    const scheduled_at =
-      i % 4 === 0 ? new Date(futureDateMs()) : new Date();
+    const scheduled_at = i % 4 === 0 ? new Date(futureDateMs()) : new Date();
 
     // ~20% of jobs are recurring, only sensible job types
-    const canRecur = ["send_email", "process_logs", "sync_data"].includes(tmpl.type);
+    const canRecur = ["send_email", "process_logs", "sync_data"].includes(
+      tmpl.type,
+    );
     const recur_interval =
       canRecur && i % 5 === 0
-        ? RECUR_INTERVALS[i % 3]   // picks every_1_minute / every_5_minutes / every_1_hour
+        ? RECUR_INTERVALS[i % 3] // picks every_1_minute / every_5_minutes / every_1_hour
         : null;
 
     valuePlaceholders.push(
-      `($${p++}, $${p++}::jsonb, $${p++}, $${p++}::timestamptz, $${p++})`
+      `($${p++}, $${p++}::jsonb, $${p++}, $${p++}::timestamptz, $${p++})`,
     );
 
     values.push(
@@ -157,7 +167,7 @@ async function seed() {
       JSON.stringify(tmpl.payloadFn(i)),
       tmpl.priority,
       scheduled_at,
-      recur_interval
+      recur_interval,
     );
   }
 

@@ -10,15 +10,13 @@ export const isValidJobStatus = (t: unknown): t is JobStatus => {
 };
 
 export const isValidJobPriority = (p: unknown): boolean => {
-  return (
-    typeof p === "number" && [1, 2, 3].includes(p)
-  );
+  return typeof p === "number" && [1, 2, 3].includes(p);
 };
 
 const RECUR_INTERVAL_MS: Record<string, number> = {
-  every_1_minute:  60_000,
+  every_1_minute: 60_000,
   every_5_minutes: 300_000,
-  every_1_hour:    3_600_000,
+  every_1_hour: 3_600_000,
 };
 
 export const VALID_RECUR_INTERVALS = Object.keys(RECUR_INTERVAL_MS);
@@ -43,9 +41,9 @@ export const toInt = (v: unknown): number => parseInt(v as string, 10);
  * Returns null when the value is absent, an Error when it's present but bad.
  */
 export const toDate = (v: unknown, field: string): Date | null | Error => {
-    if (v === undefined) return null;
-    const ms = Number(v);
-    if (Number.isNaN(ms)) return new Error(`${field} must be a unix ms timestamp`);
-    return new Date(ms);
+  if (v === undefined) return null;
+  const ms = Number(v);
+  if (Number.isNaN(ms))
+    return new Error(`${field} must be a unix ms timestamp`);
+  return new Date(ms);
 };
-

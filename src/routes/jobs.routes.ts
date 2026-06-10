@@ -1,5 +1,12 @@
 import { Request, Response, Router } from "express";
-import { isValidJobPriority, isValidJobStatus, isValidRecurInterval, toDate, toInt, VALID_RECUR_INTERVALS } from "../utils";
+import {
+  isValidJobPriority,
+  isValidJobStatus,
+  isValidRecurInterval,
+  toDate,
+  toInt,
+  VALID_RECUR_INTERVALS,
+} from "../utils";
 import { DatabaseClient, InsertJobInput } from "../db";
 import { JobQueryOptions, JobStatus, SortField, SortOrder } from "../types";
 
@@ -28,7 +35,8 @@ router.post("/jobs", async (req: Request, res: Response) => {
   if (!priority || !isValidJobPriority(priority)) {
     return res.status(400).json({
       status: "error",
-      message: "priority is required and must be 1 (high), 2 (medium), or 3 (low)",
+      message:
+        "priority is required and must be 1 (high), 2 (medium), or 3 (low)",
     });
   }
 
@@ -114,7 +122,9 @@ router.get("/jobs", async (req: Request, res: Response) => {
   } = req.query;
 
   if (type !== undefined && typeof type !== "string") {
-    return res.status(400).json({ status: "error", message: "type must be a string" });
+    return res
+      .status(400)
+      .json({ status: "error", message: "type must be a string" });
   }
 
   if (status !== undefined && !isValidJobStatus(status)) {
@@ -140,7 +150,9 @@ router.get("/jobs", async (req: Request, res: Response) => {
   if (limit !== undefined) {
     parsedLimit = toInt(limit);
     if (Number.isNaN(parsedLimit) || parsedLimit < 1) {
-      return res.status(400).json({ status: "error", message: "limit must be a positive integer" });
+      return res
+        .status(400)
+        .json({ status: "error", message: "limit must be a positive integer" });
     }
   }
 
@@ -148,7 +160,9 @@ router.get("/jobs", async (req: Request, res: Response) => {
   if (page !== undefined) {
     parsedPage = toInt(page);
     if (Number.isNaN(parsedPage) || parsedPage < 1) {
-      return res.status(400).json({ status: "error", message: "page must be a positive integer" });
+      return res
+        .status(400)
+        .json({ status: "error", message: "page must be a positive integer" });
     }
   }
 
@@ -156,7 +170,12 @@ router.get("/jobs", async (req: Request, res: Response) => {
   if (min_attempt_count !== undefined) {
     parsedMinAttempt = toInt(min_attempt_count);
     if (Number.isNaN(parsedMinAttempt) || parsedMinAttempt < 0) {
-      return res.status(400).json({ status: "error", message: "min_attempt_count must be a non-negative integer" });
+      return res
+        .status(400)
+        .json({
+          status: "error",
+          message: "min_attempt_count must be a non-negative integer",
+        });
     }
   }
 
@@ -164,7 +183,12 @@ router.get("/jobs", async (req: Request, res: Response) => {
   if (max_attempt_count !== undefined) {
     parsedMaxAttempt = toInt(max_attempt_count);
     if (Number.isNaN(parsedMaxAttempt) || parsedMaxAttempt < 0) {
-      return res.status(400).json({ status: "error", message: "max_attempt_count must be a non-negative integer" });
+      return res
+        .status(400)
+        .json({
+          status: "error",
+          message: "max_attempt_count must be a non-negative integer",
+        });
     }
   }
 
@@ -172,7 +196,12 @@ router.get("/jobs", async (req: Request, res: Response) => {
   if (min_max_retries !== undefined) {
     parsedMinMaxRetries = toInt(min_max_retries);
     if (Number.isNaN(parsedMinMaxRetries) || parsedMinMaxRetries < 0) {
-      return res.status(400).json({ status: "error", message: "min_max_retries must be a non-negative integer" });
+      return res
+        .status(400)
+        .json({
+          status: "error",
+          message: "min_max_retries must be a non-negative integer",
+        });
     }
   }
 
@@ -180,7 +209,12 @@ router.get("/jobs", async (req: Request, res: Response) => {
   if (max_max_retries !== undefined) {
     parsedMaxMaxRetries = toInt(max_max_retries);
     if (Number.isNaN(parsedMaxMaxRetries) || parsedMaxMaxRetries < 0) {
-      return res.status(400).json({ status: "error", message: "max_max_retries must be a non-negative integer" });
+      return res
+        .status(400)
+        .json({
+          status: "error",
+          message: "max_max_retries must be a non-negative integer",
+        });
     }
   }
 
@@ -191,14 +225,20 @@ router.get("/jobs", async (req: Request, res: Response) => {
     });
   }
 
-  if (sort_by !== undefined && !["attempt_count", "max_retries", "priority"].includes(sort_by as string)) {
+  if (
+    sort_by !== undefined &&
+    !["attempt_count", "max_retries", "priority"].includes(sort_by as string)
+  ) {
     return res.status(400).json({
       status: "error",
       message: "sort_by must be one of: attempt_count, max_retries, priority",
     });
   }
 
-  if (sort_order !== undefined && !["asc", "desc"].includes((sort_order as string).toLowerCase())) {
+  if (
+    sort_order !== undefined &&
+    !["asc", "desc"].includes((sort_order as string).toLowerCase())
+  ) {
     return res.status(400).json({
       status: "error",
       message: "sort_order must be asc or desc",
@@ -261,78 +301,74 @@ router.get("/jobs", async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error("Failed to fetch jobs:", err);
-    return res.status(500).json({ status: "error", message: "Failed to fetch jobs" });
+    return res
+      .status(500)
+      .json({ status: "error", message: "Failed to fetch jobs" });
   }
 });
 
 router.get("/jobs/dlq", async (req: Request, res: Response) => {
-    // Should I do the same validation for getting all jobs, or just return everything?
+  // Should I do the same validation for getting all jobs, or just return everything?
 
-    const options: JobQueryOptions = {
-        status: JobStatus.FAILED,
-    }
+  const options: JobQueryOptions = {
+    status: JobStatus.FAILED,
+  };
 
-    const result = await dbClient.getAllJobs(options);
+  const result = await dbClient.getAllJobs(options);
 
-    return res.status(200).json({
-        status: "success",
-        data: result.records,
-        meta: {
-            page: result.page,
-            limit: result.limit,
-            total: result.total
-        }
-    })
-})
+  return res.status(200).json({
+    status: "success",
+    data: result.records,
+    meta: {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+    },
+  });
+});
 
-router.get("/job/stats", async (req: Request, res: Response) => {
-
-})
+router.get("/job/stats", async (req: Request, res: Response) => {});
 
 router.get("/jobs/:id", async (req: Request, res: Response) => {
-    const { id } = req.params;
-    console.log(id);
+  const { id } = req.params;
+  console.log(id);
 
-    if (!id) {
-        return res.status(400).json({
-            status: "error",
-            message: "Missing job id request param",
-        });
-    };
+  if (!id) {
+    return res.status(400).json({
+      status: "error",
+      message: "Missing job id request param",
+    });
+  }
 
-    if (typeof id !== 'string') {
-        return res.status(422).json({
-            status: "error",
-            message: "Unprocessable entity",
-        });
-    };
+  if (typeof id !== "string") {
+    return res.status(422).json({
+      status: "error",
+      message: "Unprocessable entity",
+    });
+  }
 
-    try {
-        const job = await dbClient.getJob(id);
+  try {
+    const job = await dbClient.getJob(id);
 
-        if (!job || job === null || typeof job === 'undefined') {
-            return res.status(404).json({
-                status: "error",
-                message: `Job with ${id} does not exist`,
-            });
-        };
+    if (!job || job === null || typeof job === "undefined") {
+      return res.status(404).json({
+        status: "error",
+        message: `Job with ${id} does not exist`,
+      });
+    }
 
-        return res.status(200).json({
-            status: "success",
-            data: job,
-        })
-    } catch (err) {
-        return res.status(500).json({
-            status: "error",
-            message: err instanceof Error ? err.message : String(err),
-        });
-    };
-})
+    return res.status(200).json({
+      status: "success",
+      data: job,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      status: "error",
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
 
-router.post("/jobs/:id/cancel", async (req: Request, res: Response) => {
+router.post("/jobs/:id/cancel", async (req: Request, res: Response) => {});
 
-})
-
-router.post("/jobs/:id/retry", async (req: Request, res: Response) => {
-
-})
+router.post("/jobs/:id/retry", async (req: Request, res: Response) => {});

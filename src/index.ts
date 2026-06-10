@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { config } from "dotenv";
-import { router } from './routes'
+import { router } from "./routes";
 
 const app = express();
 config();
@@ -17,7 +17,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.use("/api/v1", router)
+app.use("/api/v1", router);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

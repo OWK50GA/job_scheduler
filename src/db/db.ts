@@ -56,7 +56,7 @@ export class DatabaseClient {
         priority,
         scheduled_at ?? new Date(),
         recur_interval ?? null,
-      ]
+      ],
     );
 
     return result.rows[0];
@@ -70,9 +70,9 @@ export class DatabaseClient {
     const result = await this.pool.query<Job>(query, [id]);
 
     if (result.rowCount && result.rowCount > 0) {
-        return result.rows[0]
+      return result.rows[0];
     } else {
-        return null
+      return null;
     }
   }
 
@@ -87,7 +87,9 @@ export class DatabaseClient {
     let paramIndex = 1;
 
     const sortBy = options.sort_by ?? null;
-    const sortOrder = options.sort_order ? options.sort_order.toUpperCase() : "ASC";
+    const sortOrder = options.sort_order
+      ? options.sort_order.toUpperCase()
+      : "ASC";
 
     const limit = options.limit && options.limit <= 50 ? options.limit : 10;
     const page = options.page ?? 1;
@@ -212,9 +214,10 @@ export class DatabaseClient {
       max_retries: "max_retries",
       priority: "priority",
     };
-    const sortClause = sortBy && SORTABLE_COLUMNS[sortBy]
-      ? `ORDER BY ${SORTABLE_COLUMNS[sortBy]} ${sortOrder}`
-      : `ORDER BY created_at DESC`;
+    const sortClause =
+      sortBy && SORTABLE_COLUMNS[sortBy]
+        ? `ORDER BY ${SORTABLE_COLUMNS[sortBy]} ${sortOrder}`
+        : `ORDER BY created_at DESC`;
 
     const countQuery = `SELECT COUNT(*) FROM jobs ${whereClause}`;
     const dataQuery = `
@@ -246,11 +249,11 @@ export class DatabaseClient {
     // One query for status counts, one for DLQ count — run in parallel
     const [statusResult, dlqResult] = await Promise.all([
       this.pool.query<{ status: string; count: string }>(
-        `SELECT status, COUNT(*) AS count FROM jobs GROUP BY status`
+        `SELECT status, COUNT(*) AS count FROM jobs GROUP BY status`,
       ),
       this.pool.query<{ count: string }>(
         `SELECT COUNT(*) AS count FROM jobs
-         WHERE status = 'failed' AND attempt_count >= max_retries`
+         WHERE status = 'failed' AND attempt_count >= max_retries`,
       ),
     ]);
 
@@ -276,7 +279,10 @@ export class DatabaseClient {
     return stats;
   }
 
-  async getDLQJobs(page = 1, limit = 10): Promise<{
+  async getDLQJobs(
+    page = 1,
+    limit = 10,
+  ): Promise<{
     records: Job[];
     page: number;
     limit: number;
@@ -290,11 +296,11 @@ export class DatabaseClient {
          WHERE status = 'failed' AND attempt_count >= max_retries
          ORDER BY updated_at DESC
          LIMIT $1 OFFSET $2`,
-        [limit, offset]
+        [limit, offset],
       ),
       this.pool.query<{ count: string }>(
         `SELECT COUNT(*) AS count FROM jobs
-         WHERE status = 'failed' AND attempt_count >= max_retries`
+         WHERE status = 'failed' AND attempt_count >= max_retries`,
       ),
     ]);
 
