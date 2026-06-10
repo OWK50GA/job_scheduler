@@ -4,6 +4,7 @@ import { config } from "dotenv";
 import swaggerUi from "swagger-ui-express";
 import { router } from "./routes";
 import { swaggerSpec } from "./config";
+import { errorHandler } from "./middleware";
 
 const app = express();
 config();
@@ -27,6 +28,8 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api/v1", router);
+
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
