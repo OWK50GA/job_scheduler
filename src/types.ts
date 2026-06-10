@@ -86,3 +86,21 @@ export type JobQueryOptions = {
   sort_by?: SortField;
   sort_order?: SortOrder;
 };
+
+export type InsertJobInput = {
+  type: string;
+  payload: Record<string, unknown>;
+  priority: 1 | 2 | 3;
+  scheduled_at?: Date;
+  recur_interval?: string;
+};
+
+export type JobStats = {
+  pending: number;
+  processing: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  dlq: number;
+  total: number;
+};
