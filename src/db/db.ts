@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import { config } from "dotenv";
-import { InsertJobInput, Job, JobQueryOptions, JobStats } from "../types";
+import { InsertJobInput, Job, JobQueryOptions, JobStats, JobStatus } from "../types";
 
 config();
 
@@ -293,5 +293,49 @@ export class DatabaseClient {
       limit,
       total: parseInt(countResult.rows[0].count, 10),
     };
+  }
+
+  async claimNextJob(): Promise<Job | null> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query<Job>(`
+        SELECT * FROM jobs
+        WHERE status = 'pending'
+          AND scheduled_at <= NOW()
+        ORDER BY priority ASC, scheduled_at ASC, created_at ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      `);
+
+      if (result.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+
+      const job = result.rows[0];
+
+      await client.query(`
+        UPDATE jobs
+        SET status = 'processing',
+            started_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $1
+      `, [job.id]);
+
+      await client.query("COMMIT");
+
+      return {
+        ...job,
+        status: JobStatus.PROCESSING
+      }
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }
