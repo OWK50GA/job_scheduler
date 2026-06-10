@@ -123,7 +123,11 @@ export async function getAllDLQJobs(req: Request, res: Response) {
   }
 }
 
-export async function getSingleJob(req: Request, res: Response) {
+export async function getSingleJob(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   const { success, error, data } = GetSingleJobSchema.safeParse(req.params);
 
   if (!success) {
@@ -147,9 +151,6 @@ export async function getSingleJob(req: Request, res: Response) {
       data: job,
     });
   } catch (err) {
-    return res.status(500).json({
-      status: "error",
-      message: err instanceof Error ? err.message : String(err),
-    });
+    next(err);
   }
 }
