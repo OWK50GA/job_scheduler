@@ -50,7 +50,11 @@ export async function createJob(
   }
 }
 
-export async function getAllJobs(req: Request, res: Response) {
+export async function getAllJobs(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   const { success, data, error } = GetAllJobsSchema.safeParse(req.query);
 
   if (!success) {
@@ -64,7 +68,7 @@ export async function getAllJobs(req: Request, res: Response) {
   try {
     const options: JobQueryOptions = {
       ...data,
-      status: data.status as JobStatus,
+      status: data.status as JobStatus | undefined,
     };
 
     const result = await dbClient.getAllJobs(options);
@@ -79,14 +83,15 @@ export async function getAllJobs(req: Request, res: Response) {
       },
     });
   } catch (err) {
-    console.error("Failed to fetch jobs:", err);
-    return res
-      .status(500)
-      .json({ status: "error", message: "Failed to fetch jobs" });
+    next(err);
   }
 }
 
-export async function getAllDLQJobs(req: Request, res: Response) {
+export async function getAllDLQJobs(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   const { success, data, error } = GetDLQJobsSchema.safeParse(req.query);
 
   if (!success) {
@@ -97,13 +102,9 @@ export async function getAllDLQJobs(req: Request, res: Response) {
     });
   }
 
-  const { page, limit } = data;
-
   try {
-    const result = await dbClient.getDLQJobs(
-      page ? page : undefined,
-      limit ? limit : undefined,
-    );
+    // page and limit always have values — schema applies defaults
+    const result = await dbClient.getDLQJobs(data.page, data.limit);
 
     return res.status(200).json({
       status: "success",
@@ -115,11 +116,7 @@ export async function getAllDLQJobs(req: Request, res: Response) {
       },
     });
   } catch (err) {
-    return res.status(500).json({
-      status: "error",
-      message:
-        err instanceof Error ? `Internal Server Error: ${err.message}` : err,
-    });
+    next(err);
   }
 }
 
