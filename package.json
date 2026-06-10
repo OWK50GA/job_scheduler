@@ -12,7 +12,8 @@
     "start:server": "node dist/index.js",
     "dev:ui": "pnpm --filter ui run dev",
     "install:ui": "pnpm --filter ui install",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "seed": "tsx src/seeder.ts"
   },
   "keywords": [],
   "author": "",
