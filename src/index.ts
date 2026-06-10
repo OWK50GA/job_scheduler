@@ -1,7 +1,9 @@
 import express from "express";
 import cors from "cors";
 import { config } from "dotenv";
+import swaggerUi from "swagger-ui-express";
 import { router } from "./routes";
+import { swaggerSpec } from "./config";
 
 const app = express();
 config();
@@ -10,6 +12,15 @@ const PORT = process.env.PORT ?? 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// API docs — available at /api-docs
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Expose raw OpenAPI JSON for Postman import or tooling
+app.get("/api-docs.json", (_req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.send(swaggerSpec);
+});
 
 app.get("/health", (req, res) => {
   return res.json({
