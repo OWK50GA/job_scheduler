@@ -32,7 +32,8 @@ export const CreateJobSchema = z.object({
 
   recur_interval: z
     .enum(["every_1_minute", "every_5_minutes", "every_1_hour"], {
-      error: "recur_interval must be one of: every_1_minute, every_5_minutes, every_1_hour",
+      error:
+        "recur_interval must be one of: every_1_minute, every_5_minutes, every_1_hour",
     })
     .optional(),
 });

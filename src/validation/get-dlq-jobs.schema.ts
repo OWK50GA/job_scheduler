@@ -1,16 +1,14 @@
 import { z } from "zod";
 
 export const GetDLQJobsSchema = z.object({
-  page: z
-    .coerce
+  page: z.coerce
     .number()
     .int("page must be an integer")
     .min(1, "page must be >= 1")
     .optional()
     .default(1),
 
-  limit: z
-    .coerce
+  limit: z.coerce
     .number()
     .int("limit must be an integer")
     .min(1, "limit must be >= 1")

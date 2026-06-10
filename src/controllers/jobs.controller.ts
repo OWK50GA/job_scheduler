@@ -1,25 +1,32 @@
 import { NextFunction, Request, Response } from "express";
 import { DatabaseClient } from "../db";
 import { InsertJobInput, JobQueryOptions, JobStatus } from "../types";
-import { CreateJobSchema, GetAllJobsSchema, GetDLQJobsSchema, GetSingleJobSchema } from "../validation";
+import {
+  CreateJobSchema,
+  GetAllJobsSchema,
+  GetDLQJobsSchema,
+  GetSingleJobSchema,
+} from "../validation";
 import { AppError } from "../middleware";
 
 const dbClient = new DatabaseClient();
 
-export async function createJob(req: Request, res: Response, next: NextFunction) {
-    const { success, data, error } = CreateJobSchema.safeParse(req.body);
-    if (!success) {
-        const issue = error.issues[0];
-        return res.status(400).json({
-            status: "error",
-            message: `${String(issue.path[0])}: ${issue.message}`
-        })
-    }
-    const { type, payload, priority, scheduled_at, recur_interval } = data;
+export async function createJob(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const { success, data, error } = CreateJobSchema.safeParse(req.body);
+  if (!success) {
+    const issue = error.issues[0];
+    return res.status(400).json({
+      status: "error",
+      message: `${String(issue.path[0])}: ${issue.message}`,
+    });
+  }
+  const { type, payload, priority, scheduled_at, recur_interval } = data;
 
-    try {
-
-
+  try {
     const input: InsertJobInput = {
       type,
       payload,
@@ -31,7 +38,7 @@ export async function createJob(req: Request, res: Response, next: NextFunction)
     const job = await dbClient.insertJob(input);
 
     if (!job) {
-        throw new AppError(500, "Failed to create job")
+      throw new AppError(500, "Failed to create job");
     }
 
     return res.status(201).json({
@@ -44,21 +51,20 @@ export async function createJob(req: Request, res: Response, next: NextFunction)
 }
 
 export async function getAllJobs(req: Request, res: Response) {
+  const { success, data, error } = GetAllJobsSchema.safeParse(req.query);
 
-    const { success, data, error } = GetAllJobsSchema.safeParse(req.query)
-
-    if (!success) {
-        const issue = error.issues[0];
-        return res.status(400).json({
-            status: "error",
-            message: `${String(issue.path[0])}: ${issue.message}`,
-        })
-    }
+  if (!success) {
+    const issue = error.issues[0];
+    return res.status(400).json({
+      status: "error",
+      message: `${String(issue.path[0])}: ${issue.message}`,
+    });
+  }
 
   try {
     const options: JobQueryOptions = {
-        ...data,
-        status: data.status as JobStatus,
+      ...data,
+      status: data.status as JobStatus,
     };
 
     const result = await dbClient.getAllJobs(options);
@@ -86,53 +92,54 @@ export async function getAllDLQJobs(req: Request, res: Response) {
   if (!success) {
     const issue = error.issues[0];
     return res.status(400).json({
-        status: "error",
-        message: `${String(issue.path[0])}: ${issue.message}`,
-    })
+      status: "error",
+      message: `${String(issue.path[0])}: ${issue.message}`,
+    });
   }
 
-  const { page, limit } = data
+  const { page, limit } = data;
 
   try {
     const result = await dbClient.getDLQJobs(
-        page ? page : undefined,
-        limit ? limit : undefined,
+      page ? page : undefined,
+      limit ? limit : undefined,
     );
 
     return res.status(200).json({
-        status: "success",
-        data: result.records,
-        meta: {
+      status: "success",
+      data: result.records,
+      meta: {
         page: result.page,
         limit: result.limit,
         total: result.total,
-        },
+      },
     });
   } catch (err) {
     return res.status(500).json({
-        status: "error",
-        message: err instanceof Error ? `Internal Server Error: ${err.message}` : err,
-    })
+      status: "error",
+      message:
+        err instanceof Error ? `Internal Server Error: ${err.message}` : err,
+    });
   }
 }
 
 export async function getSingleJob(req: Request, res: Response) {
-    const { success, error, data } = GetSingleJobSchema.safeParse(req.params);
+  const { success, error, data } = GetSingleJobSchema.safeParse(req.params);
 
-    if (!success) {
-        const issue = error.issues[0];
-        return res.status(400).json({
-            status: "error",
-            message: `${String(issue.path[0])}: ${issue.message}`,
-        })
-    }
+  if (!success) {
+    const issue = error.issues[0];
+    return res.status(400).json({
+      status: "error",
+      message: `${String(issue.path[0])}: ${issue.message}`,
+    });
+  }
   const { id } = data;
 
   try {
     const job = await dbClient.getJob(id);
 
     if (!job) {
-        throw new AppError(404, `Job with ${id} does not exist`)
+      throw new AppError(404, `Job with ${id} does not exist`);
     }
 
     return res.status(200).json({

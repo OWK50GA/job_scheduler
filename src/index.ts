@@ -29,7 +29,7 @@ app.get("/health", (req, res) => {
 
 app.use("/api/v1", router);
 
-app.use(errorHandler)
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

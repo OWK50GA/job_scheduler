@@ -2,7 +2,10 @@ import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 
 export class AppError extends Error {
-  constructor(public statusCode: number, message: string) {
+  constructor(
+    public statusCode: number,
+    message: string,
+  ) {
     super(message);
     this.name = "AppError";
   }
@@ -12,7 +15,7 @@ export function errorHandler(
   err: unknown,
   req: Request,
   res: Response,
-  _next: NextFunction
+  _next: NextFunction,
 ): void {
   // Known operational error - thrown deliberately
   if (err instanceof AppError) {
@@ -37,8 +40,11 @@ export function errorHandler(
   console.error(err);
   res.status(500).json({
     status: "error",
-    message: process.env.NODE_ENV === "production"
-      ? "Internal server error"
-      : err instanceof Error ? err.message : String(err),
+    message:
+      process.env.NODE_ENV === "production"
+        ? "Internal server error"
+        : err instanceof Error
+          ? err.message
+          : String(err),
   });
 }
