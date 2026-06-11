@@ -6,7 +6,7 @@ import { EmailPayloadSchema } from "./validation";
 /**
  * job type should be send_email  
 */
-export async function sendEmail(job: Job): Promise<HandlerResult> {
+export async function sendEmailHandler(job: Job): Promise<HandlerResult> {
     const start = Date.now();
 
     if (job.type !== "send_email") {
