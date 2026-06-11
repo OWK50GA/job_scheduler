@@ -452,6 +452,92 @@ export class DatabaseClient {
   }
 
   /**
+   * Fetches the next batch of eligible jobs for the scheduler heap.
+   *
+   * Eligibility rules:
+   * - status = 'pending'  (not already processing/completed/failed/cancelled)
+   * - scheduled_at <= NOW()  (due time has passed)
+   * - next_retry_at IS NULL OR next_retry_at <= NOW()
+   *   (for retried jobs: backoff window has elapsed)
+   *
+   * When there are more eligible jobs than the limit, the DB pre-sorts by
+   * priority ASC, scheduled_at ASC, created_at ASC so we always pull the
+   * most urgent candidates first. The in-memory scheduler then applies its
+   * own effective-score calculation (aging, DAG weight) on top of this set.
+   *
+   * Recurring jobs need no special handling here — scheduleNextRecurringRun
+   * already inserts the next run as a fresh pending row with the correct
+   * future scheduled_at. Once that time passes this query picks it up.
+   *
+   * @param limit  Maximum number of jobs to return. Default 100.
+   */
+  async fetchDueJobs(limit = 100): Promise<Job[]> {
+    const result = await this.pool.query<Job>(
+      `SELECT *
+       FROM   jobs
+       WHERE  status = 'pending'
+         AND  scheduled_at <= NOW()
+         AND  (next_retry_at IS NULL OR next_retry_at <= NOW())
+       ORDER BY priority ASC, scheduled_at ASC, created_at ASC
+       LIMIT  $1`,
+      [limit],
+    );
+
+    return result.rows;
+  }
+
+  /**
+   * Atomically claims a specific job by ID, transitioning it from
+   * 'pending' to 'processing'.
+   *
+   * Used by the heap-based scheduler: the heap decides which job to run
+   * next (by effective score), then calls this to lock that specific row.
+   * FOR UPDATE SKIP LOCKED ensures two workers can never claim the same job,
+   * even if they both decided on the same ID simultaneously.
+   *
+   * Returns null if the job was already claimed by another worker or no
+   * longer exists — the caller should skip it and pop the next heap entry.
+   */
+  async claimJobById(jobId: string): Promise<Job | null> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query<Job>(
+        `SELECT * FROM jobs
+         WHERE  id = $1
+           AND  status = 'pending'
+         FOR UPDATE SKIP LOCKED`,
+        [jobId],
+      );
+
+      if (result.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+
+      await client.query(
+        `UPDATE jobs
+         SET    status     = 'processing',
+                started_at = NOW(),
+                updated_at = NOW()
+         WHERE  id = $1`,
+        [jobId],
+      );
+
+      await client.query("COMMIT");
+
+      return { ...result.rows[0], status: JobStatus.PROCESSING };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Reaps zombie jobs — jobs stuck in 'processing' longer than the timeout.
    *
    * This happens when a worker crashes mid-execution without updating the job.

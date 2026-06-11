@@ -1,17 +1,26 @@
 import { DatabaseClient } from "../db";
 import { logger } from "../logger";
+import { Job } from "../types";
 import { processJob } from "./processor";
+import { MinHeap } from "./scheduler";
 
 const POLL_INTERVAL_MS = 1_000;
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1_000; // 5 minutes
+const HEAP_RELOAD_INTERVAL_MS = 30 * 1_000;  // 30 seconds
 const SHUTDOWN_TIMEOUT_MS = 30 * 1_000;
 
 const dbClient = new DatabaseClient();
+const heap = new MinHeap();
 
 let running = false;
 let shuttingDown = false;
 let inflightJob: Promise<void> | null = null;
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+let newHeapTimer: ReturnType<typeof setInterval> | null = null;
+
+async function loadDueJobs(): Promise<Job[]> {
+    return await dbClient.fetchDueJobs();
+}
 
 /**
  * One iteration of the poll loop.
@@ -19,11 +28,22 @@ let cleanupTimer: ReturnType<typeof setInterval> | null = null;
  * Returns true if a job was found, false if the queue was empty.
  */
 async function tick(): Promise<boolean> {
-  const job = await dbClient.claimNextJob();
+    if (heap.size() === 0) {
+        const jobs = await loadDueJobs();
+        heap.insert(jobs);
+    }
 
-  if (!job) {
-    return false;
-  }
+    const nextJobId = heap.pop()?.id;
+
+    if (!nextJobId) {
+        return false;
+    }
+
+    const job = await dbClient.claimJobById(nextJobId);
+
+    if (!job) {
+        return true;
+    }
 
   inflightJob = processJob(job).then(() => undefined).finally(() => {
     inflightJob = null;
@@ -79,6 +99,13 @@ function startCleanupInterval(): void {
       logger.error({ err }, "Cleanup interval error");
     }
   }, CLEANUP_INTERVAL_MS);
+  newHeapTimer = setInterval(async () => {
+    try {
+        heap.insert(await loadDueJobs())
+    } catch (err) {
+        logger.error({ err }, "Failed to load jobs to heap");
+    }
+  }, HEAP_RELOAD_INTERVAL_MS)
 }
 
 /**
@@ -118,6 +145,11 @@ export async function stopWorker(): Promise<void> {
   if (cleanupTimer !== null) {
     clearInterval(cleanupTimer);
     cleanupTimer = null;
+  }
+
+  if (newHeapTimer !== null) {
+    clearInterval(newHeapTimer);
+    newHeapTimer = null;
   }
 
   if (inflightJob) {
