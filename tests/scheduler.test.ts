@@ -122,9 +122,9 @@ describe("MinHeap — priority ordering (no aging)", () => {
   });
 
   it("inserts high-priority job last but pops it first", () => {
-    const low    = makeJob({ id: "low",    priority: 3 });
+    const low = makeJob({ id: "low", priority: 3 });
     const medium = makeJob({ id: "medium", priority: 2 });
-    const high   = makeJob({ id: "high",   priority: 1 });
+    const high = makeJob({ id: "high", priority: 1 });
 
     heap.insert([low, medium, high]);
 
@@ -190,11 +190,15 @@ describe("MinHeap.scoreJob — aging formula", () => {
   });
 
   it("priority 1 job has score 1.0 when brand-new", () => {
-    expect(MinHeap.scoreJob(makeJob({ priority: 1, created_at: new Date() }))).toBe(1);
+    expect(
+      MinHeap.scoreJob(makeJob({ priority: 1, created_at: new Date() })),
+    ).toBe(1);
   });
 
   it("priority 2 job has score 2.0 when brand-new", () => {
-    expect(MinHeap.scoreJob(makeJob({ priority: 2, created_at: new Date() }))).toBe(2);
+    expect(
+      MinHeap.scoreJob(makeJob({ priority: 2, created_at: new Date() })),
+    ).toBe(2);
   });
 
   it("applies first aging step at exactly 10 minutes", () => {
@@ -247,7 +251,7 @@ describe("MinHeap — aging causes low-priority jobs to overtake high-priority o
    */
 
   it("a 40-min-old priority-3 job scores the same as a fresh priority-1 job", () => {
-    const agedLow   = makeJob({ priority: 3, created_at: minutesAgo(40) });
+    const agedLow = makeJob({ priority: 3, created_at: minutesAgo(40) });
     const freshHigh = makeJob({ priority: 1, created_at: new Date() });
 
     // Both should score ≈ 1.0
@@ -257,11 +261,21 @@ describe("MinHeap — aging causes low-priority jobs to overtake high-priority o
 
   it("a 50-min-old priority-3 job scores lower than a fresh priority-1 job (comes out first)", () => {
     // floor(50 / 10) * 0.5 = 2.5; score = 3 - 2.5 = 0.5
-    const veryAgedLow = makeJob({ id: "aged-p3", priority: 3, created_at: minutesAgo(50) });
+    const veryAgedLow = makeJob({
+      id: "aged-p3",
+      priority: 3,
+      created_at: minutesAgo(50),
+    });
     // fresh p1 score = 1.0
-    const freshHigh   = makeJob({ id: "fresh-p1", priority: 1, created_at: new Date() });
+    const freshHigh = makeJob({
+      id: "fresh-p1",
+      priority: 1,
+      created_at: new Date(),
+    });
 
-    expect(MinHeap.scoreJob(veryAgedLow)).toBeLessThan(MinHeap.scoreJob(freshHigh));
+    expect(MinHeap.scoreJob(veryAgedLow)).toBeLessThan(
+      MinHeap.scoreJob(freshHigh),
+    );
 
     const heap = new MinHeap();
     heap.insert([freshHigh, veryAgedLow]);
@@ -270,8 +284,12 @@ describe("MinHeap — aging causes low-priority jobs to overtake high-priority o
   });
 
   it("fresh priority-1 job is NOT overtaken by a brand-new priority-3 job", () => {
-    const freshHigh = makeJob({ id: "p1", priority: 1, created_at: new Date() });
-    const freshLow  = makeJob({ id: "p3", priority: 3, created_at: new Date() });
+    const freshHigh = makeJob({
+      id: "p1",
+      priority: 1,
+      created_at: new Date(),
+    });
+    const freshLow = makeJob({ id: "p3", priority: 3, created_at: new Date() });
 
     const heap = new MinHeap();
     heap.insert([freshLow, freshHigh]);
@@ -324,8 +342,8 @@ describe("MinHeap — duplicate protection via inHeap set", () => {
   it("re-inserting a popped job works correctly — it re-enters the heap", () => {
     const job = makeJob({ id: "reinsert" });
     heap.insert([job]);
-    heap.pop();                // remove it
-    heap.insert([job]);        // insert again
+    heap.pop(); // remove it
+    heap.insert([job]); // insert again
     expect(heap.size()).toBe(1);
     expect(heap.has("reinsert")).toBe(true);
   });
@@ -372,8 +390,12 @@ describe("MinHeap — ordering correctness under varied loads", () => {
     }
 
     // All priority-1 jobs must come before any priority-3 job
-    const p1Indices = popped.map((j, idx) => j.priority === 1 ? idx : -1).filter(i => i >= 0);
-    const p3Indices = popped.map((j, idx) => j.priority === 3 ? idx : -1).filter(i => i >= 0);
+    const p1Indices = popped
+      .map((j, idx) => (j.priority === 1 ? idx : -1))
+      .filter((i) => i >= 0);
+    const p3Indices = popped
+      .map((j, idx) => (j.priority === 3 ? idx : -1))
+      .filter((i) => i >= 0);
     expect(Math.max(...p1Indices)).toBeLessThan(Math.min(...p3Indices));
   });
 

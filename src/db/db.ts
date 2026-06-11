@@ -1,7 +1,12 @@
 import { Pool } from "pg";
 import { config } from "dotenv";
-import { InsertJobInput, Job, JobQueryOptions, JobStats, JobStatus } from "../types";
-import { HandlerResult } from "../worker/types";
+import {
+  InsertJobInput,
+  Job,
+  JobQueryOptions,
+  JobStats,
+  JobStatus,
+} from "../types";
 
 config();
 
@@ -318,20 +323,23 @@ export class DatabaseClient {
 
       const job = result.rows[0];
 
-      await client.query(`
+      await client.query(
+        `
         UPDATE jobs
         SET status = 'processing',
             started_at = NOW(),
             updated_at = NOW()
         WHERE id = $1
-      `, [job.id]);
+      `,
+        [job.id],
+      );
 
       await client.query("COMMIT");
 
       return {
         ...job,
-        status: JobStatus.PROCESSING
-      }
+        status: JobStatus.PROCESSING,
+      };
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;
@@ -588,5 +596,37 @@ export class DatabaseClient {
     );
 
     return result.rows[0];
+  }
+
+  /**
+   * Re-queues a DLQ job for manual retry.
+   *
+   * Only operates on jobs that are in the dead-letter queue:
+   *   status = 'failed' AND attempt_count >= max_retries
+   *
+   * Resets attempt_count to 0, clears last_error and next_retry_at,
+   * and sets status back to 'pending' so the worker picks it up again.
+   * scheduled_at is reset to NOW() so it is immediately eligible.
+   *
+   * Returns the updated job, or null if the job does not exist or is
+   * not in the DLQ (caller should distinguish 404 vs 409).
+   */
+  async manualRetryJob(jobId: string): Promise<Job | null> {
+    const result = await this.pool.query<Job>(
+      `UPDATE jobs
+       SET status        = 'pending',
+           attempt_count = 0,
+           last_error    = NULL,
+           next_retry_at = NULL,
+           scheduled_at  = NOW(),
+           updated_at    = NOW()
+       WHERE id = $1
+         AND status = 'failed'
+         AND attempt_count >= max_retries
+       RETURNING *`,
+      [jobId],
+    );
+
+    return result.rowCount && result.rowCount > 0 ? result.rows[0] : null;
   }
 }

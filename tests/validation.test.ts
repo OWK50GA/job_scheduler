@@ -88,7 +88,10 @@ describe("CreateJobSchema", () => {
 
   it("infers scheduled_at as number in output", () => {
     const ms = Date.now() + 60_000;
-    const result = CreateJobSchema.safeParse({ ...validBody, scheduled_at: ms });
+    const result = CreateJobSchema.safeParse({
+      ...validBody,
+      scheduled_at: ms,
+    });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.scheduled_at).toBe(ms);

@@ -1,1 +1,1 @@
-export * from './email-payload.schema'
+export * from "./email-payload.schema";

@@ -1,9 +1,12 @@
-import { Request, Response, Router } from "express";
+import { Router } from "express";
 import {
+  cancelJob,
   createJob,
   getAllDLQJobs,
   getAllJobs,
+  getJobStats,
   getSingleJob,
+  manualRetryJob,
 } from "../controllers";
 
 export const router = Router();
@@ -285,7 +288,7 @@ router.get("/jobs/dlq", getAllDLQJobs);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/jobs/stats", async (_req: Request, res: Response) => {});
+router.get("/jobs/stats", getJobStats);
 
 /**
  * @swagger
@@ -379,7 +382,7 @@ router.get("/jobs/:id", getSingleJob);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/jobs/:id/cancel", async (_req: Request, _res: Response) => {});
+router.post("/jobs/:id/cancel", cancelJob);
 
 /**
  * @swagger
@@ -430,4 +433,4 @@ router.post("/jobs/:id/cancel", async (_req: Request, _res: Response) => {});
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/jobs/:id/retry", async (_req: Request, _res: Response) => {});
+router.post("/jobs/:id/retry", manualRetryJob);
