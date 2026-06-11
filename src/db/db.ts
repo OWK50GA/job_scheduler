@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import { config } from "dotenv";
-import { InsertJobInput, Job, JobQueryOptions, JobStats } from "../types";
+import { InsertJobInput, Job, JobQueryOptions, JobStats, JobStatus } from "../types";
+import { HandlerResult } from "../worker/types";
 
 config();
 
@@ -293,5 +294,213 @@ export class DatabaseClient {
       limit,
       total: parseInt(countResult.rows[0].count, 10),
     };
+  }
+
+  async claimNextJob(): Promise<Job | null> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query<Job>(`
+        SELECT * FROM jobs
+        WHERE status = 'pending'
+          AND scheduled_at <= NOW()
+        ORDER BY priority ASC, scheduled_at ASC, created_at ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      `);
+
+      if (result.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+
+      const job = result.rows[0];
+
+      await client.query(`
+        UPDATE jobs
+        SET status = 'processing',
+            started_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $1
+      `, [job.id]);
+
+      await client.query("COMMIT");
+
+      return {
+        ...job,
+        status: JobStatus.PROCESSING
+      }
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async markJobCompleted(
+    jobId: string,
+    result: Record<string, unknown>,
+    durationMs: number,
+  ): Promise<Job> {
+    const [jobResult] = await Promise.all([
+      this.pool.query<Job>(
+        `UPDATE jobs
+         SET status       = 'completed',
+             result       = $2,
+             completed_at = NOW(),
+             updated_at   = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [jobId, JSON.stringify(result)],
+      ),
+      this.pool.query(
+        `INSERT INTO job_attempts (job_id, attempt_num, duration_ms)
+         SELECT id, attempt_count, $2
+         FROM   jobs
+         WHERE  id = $1`,
+        [jobId, durationMs],
+      ),
+    ]);
+
+    return jobResult.rows[0];
+  }
+
+  /**
+   * Job failed but still has retries remaining.
+   * Increments attempt_count, sets next_retry_at using the caller-supplied
+   * backoff date, and keeps status as 'pending' so the poll loop picks it up.
+   */
+  async markJobRetryable(
+    jobId: string,
+    error: string,
+    nextRetryAt: Date,
+    durationMs: number,
+  ): Promise<Job> {
+    const [jobResult] = await Promise.all([
+      this.pool.query<Job>(
+        `UPDATE jobs
+         SET status        = 'pending',
+             last_error    = $2,
+             next_retry_at = $3,
+             attempt_count = attempt_count + 1,
+             updated_at    = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [jobId, error, nextRetryAt],
+      ),
+      this.pool.query(
+        `INSERT INTO job_attempts (job_id, attempt_num, error, duration_ms)
+         SELECT id, attempt_count, $2, $3
+         FROM   jobs
+         WHERE  id = $1`,
+        [jobId, error, durationMs],
+      ),
+    ]);
+
+    return jobResult.rows[0];
+  }
+
+  /**
+   * Job has exhausted all retries. Mark it failed permanently.
+   * It is now in the DLQ (status=failed AND attempt_count >= max_retries).
+   */
+  async markJobDeadLetter(
+    jobId: string,
+    error: string,
+    durationMs: number,
+  ): Promise<Job> {
+    const [jobResult] = await Promise.all([
+      this.pool.query<Job>(
+        `UPDATE jobs
+         SET status        = 'failed',
+             last_error    = $2,
+             next_retry_at = NULL,
+             attempt_count = attempt_count + 1,
+             updated_at    = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [jobId, error],
+      ),
+      this.pool.query(
+        `INSERT INTO job_attempts (job_id, attempt_num, error, duration_ms)
+         SELECT id, attempt_count, $2, $3
+         FROM   jobs
+         WHERE  id = $1`,
+        [jobId, error, durationMs],
+      ),
+    ]);
+
+    return jobResult.rows[0];
+  }
+
+  async cancelJob(jobId: string): Promise<Job | null> {
+    const result = await this.pool.query<Job>(
+      `UPDATE jobs
+       SET status       = 'cancelled',
+           cancelled_at = NOW(),
+           updated_at   = NOW()
+       WHERE id = $1
+         AND status IN ('pending', 'processing')
+       RETURNING *`,
+      [jobId],
+    );
+
+    return result.rowCount && result.rowCount > 0 ? result.rows[0] : null;
+  }
+
+  /**
+   * Reaps zombie jobs — jobs stuck in 'processing' longer than the timeout.
+   *
+   * This happens when a worker crashes mid-execution without updating the job.
+   * The job is reset to 'pending' so the poll loop picks it up again.
+   * attempt_count is incremented because the job genuinely failed — treating it
+   * as a fresh attempt would let it exceed max_retries silently.
+   *
+   * Timeout: 10 minutes. Any job processing longer than that is assumed dead.
+   *
+   * Returns the number of jobs reaped.
+   */
+  async reapZombieJobs(): Promise<number> {
+    const result = await this.pool.query(
+      `UPDATE jobs
+       SET status        = 'pending',
+           started_at    = NULL,
+           attempt_count = attempt_count + 1,
+           last_error    = 'Worker crashed or timed out',
+           updated_at    = NOW()
+       WHERE status = 'processing'
+         AND started_at < NOW() - INTERVAL '10 minutes'`,
+    );
+
+    return result.rowCount ?? 0;
+  }
+
+  async scheduleNextRecurringRun(job: Job): Promise<Job> {
+    if (!job.recur_interval) {
+      throw new Error(`Job ${job.id} has no recur_interval`);
+    }
+
+    // Import inline to avoid circular dep between db and utils
+    const { recurIntervalToMilliseconds } = await import("../utils");
+    const ms = recurIntervalToMilliseconds(job.recur_interval);
+    const nextScheduledAt = new Date(Date.now() + ms);
+
+    const result = await this.pool.query<Job>(
+      `INSERT INTO jobs (type, payload, priority, scheduled_at, recur_interval)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [
+        job.type,
+        JSON.stringify(job.payload),
+        job.priority,
+        nextScheduledAt,
+        job.recur_interval,
+      ],
+    );
+
+    return result.rows[0];
   }
 }
