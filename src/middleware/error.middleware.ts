@@ -30,7 +30,7 @@ export function errorHandler(
     const issue = err.issues[0];
     res.status(400).json({
       status: "error",
-      message: `${String(issue.path[0]) ?? "input"}: ${issue.message}`,
+      message: `${String(issue.path[0]) || "input"}: ${issue.message}`,
     });
     return;
   }
