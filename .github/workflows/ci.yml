@@ -49,7 +49,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run migration
-        run: psql $JOB_SCHEDULER_DB_URL -f migrations/001_init.sql && psql $JOB_SCHEDULER_DB_URL -f migrations/001_init.sql
+        run: psql $JOB_SCHEDULER_DB_URL -f migrations/001_init.sql && psql $JOB_SCHEDULER_DB_URL -f migrations/002_job_dependencies.sql
 
       - name: Lint check
       - run: pnpm lint
