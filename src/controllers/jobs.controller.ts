@@ -24,7 +24,8 @@ export async function createJob(
       message: `${String(issue.path[0])}: ${issue.message}`,
     });
   }
-  const { type, payload, priority, scheduled_at, recur_interval, depends_on } = data;
+  const { type, payload, priority, scheduled_at, recur_interval, depends_on } =
+    data;
 
   try {
     // If a dependency is declared, verify the referenced job actually exists.

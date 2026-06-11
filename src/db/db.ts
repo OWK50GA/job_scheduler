@@ -33,7 +33,14 @@ export class DatabaseClient {
   }
 
   async insertJob(input: InsertJobInput): Promise<Job> {
-    const { type, payload, priority, scheduled_at, recur_interval, depends_on } = input;
+    const {
+      type,
+      payload,
+      priority,
+      scheduled_at,
+      recur_interval,
+      depends_on,
+    } = input;
 
     const result = await this.pool.query<Job>(
       `INSERT INTO jobs (type, payload, priority, scheduled_at, recur_interval)
