@@ -345,7 +345,6 @@ export class DatabaseClient {
     result: Record<string, unknown>,
     durationMs: number,
   ): Promise<Job> {
-    // Run both updates in parallel — they're independent
     const [jobResult] = await Promise.all([
       this.pool.query<Job>(
         `UPDATE jobs
@@ -450,6 +449,33 @@ export class DatabaseClient {
     );
 
     return result.rowCount && result.rowCount > 0 ? result.rows[0] : null;
+  }
+
+  /**
+   * Reaps zombie jobs — jobs stuck in 'processing' longer than the timeout.
+   *
+   * This happens when a worker crashes mid-execution without updating the job.
+   * The job is reset to 'pending' so the poll loop picks it up again.
+   * attempt_count is incremented because the job genuinely failed — treating it
+   * as a fresh attempt would let it exceed max_retries silently.
+   *
+   * Timeout: 10 minutes. Any job processing longer than that is assumed dead.
+   *
+   * Returns the number of jobs reaped.
+   */
+  async reapZombieJobs(): Promise<number> {
+    const result = await this.pool.query(
+      `UPDATE jobs
+       SET status        = 'pending',
+           started_at    = NULL,
+           attempt_count = attempt_count + 1,
+           last_error    = 'Worker crashed or timed out',
+           updated_at    = NOW()
+       WHERE status = 'processing'
+         AND started_at < NOW() - INTERVAL '10 minutes'`,
+    );
+
+    return result.rowCount ?? 0;
   }
 
   async scheduleNextRecurringRun(job: Job): Promise<Job> {

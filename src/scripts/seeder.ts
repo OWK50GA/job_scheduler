@@ -22,7 +22,7 @@ const TEMPLATES: JobTemplate[] = [
     payloadFn: (i) => ({
       to: `user${i}@example.com`,
       subject: `Notification #${i}`,
-      body: `Hello user${i}, this is an automated notification.`,
+      html: `Hello user${i}, this is an automated notification.`,
     }),
   },
   // Critical transactional emails — high priority
@@ -32,7 +32,7 @@ const TEMPLATES: JobTemplate[] = [
     payloadFn: (i) => ({
       to: `customer${i}@example.com`,
       subject: "Your order has shipped",
-      body: `Order #${1000 + i} is on its way.`,
+      html: `Order #${1000 + i} is on its way.`,
       template: "order_shipped",
     }),
   },

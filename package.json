@@ -15,7 +15,7 @@
     "dev:ui": "pnpm --filter ui run dev",
     "install:ui": "pnpm --filter ui install",
     "format": "prettier --write .",
-    "seed": "tsx src/scripts/seeder.ts",
+    "seed:db": "tsx src/scripts/seeder.ts",
     "reset:db": "tsx src/scripts/reset-db.ts"
   },
   "keywords": [],
