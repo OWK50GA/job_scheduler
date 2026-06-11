@@ -1,16 +1,26 @@
 import { DatabaseClient } from "../db";
+import { logger } from "../logger";
+import { Job } from "../types";
 import { processJob } from "./processor";
+import { MinHeap } from "./scheduler";
 
 const POLL_INTERVAL_MS = 1_000;
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1_000; // 5 minutes
+const HEAP_RELOAD_INTERVAL_MS = 30 * 1_000;  // 30 seconds
 const SHUTDOWN_TIMEOUT_MS = 30 * 1_000;
 
 const dbClient = new DatabaseClient();
+const heap = new MinHeap();
 
 let running = false;
 let shuttingDown = false;
 let inflightJob: Promise<void> | null = null;
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+let newHeapTimer: ReturnType<typeof setInterval> | null = null;
+
+async function loadDueJobs(): Promise<Job[]> {
+    return await dbClient.fetchDueJobs();
+}
 
 /**
  * One iteration of the poll loop.
@@ -18,11 +28,22 @@ let cleanupTimer: ReturnType<typeof setInterval> | null = null;
  * Returns true if a job was found, false if the queue was empty.
  */
 async function tick(): Promise<boolean> {
-  const job = await dbClient.claimNextJob();
+    if (heap.size() === 0) {
+        const jobs = await loadDueJobs();
+        heap.insert(jobs);
+    }
 
-  if (!job) {
-    return false;
-  }
+    const nextJobId = heap.pop()?.id;
+
+    if (!nextJobId) {
+        return false;
+    }
+
+    const job = await dbClient.claimJobById(nextJobId);
+
+    if (!job) {
+        return true;
+    }
 
   inflightJob = processJob(job).then(() => undefined).finally(() => {
     inflightJob = null;
@@ -50,9 +71,7 @@ async function pollLoop(): Promise<void> {
       }
       // Job found? loop immediately to drain the queue
     } catch (err) {
-      // Unexpected error in the poll loop itself (not inside processJob since
-      // that catches its own errors). Back off to avoid hammering the DB.
-      console.error("[worker] Unexpected error in poll loop:", err);
+      logger.error({ err }, "Unexpected error in poll loop — backing off");
       await sleep(POLL_INTERVAL_MS);
     }
   }
@@ -74,12 +93,19 @@ function startCleanupInterval(): void {
     try {
       const reaped = await dbClient.reapZombieJobs();
       if (reaped > 0) {
-        console.log(`[worker] Reaped ${reaped} zombie job(s).`);
+        logger.warn({ reaped }, "Reaped zombie jobs");
       }
     } catch (err) {
-      console.error("[worker] Cleanup error:", err);
+      logger.error({ err }, "Cleanup interval error");
     }
   }, CLEANUP_INTERVAL_MS);
+  newHeapTimer = setInterval(async () => {
+    try {
+        heap.insert(await loadDueJobs())
+    } catch (err) {
+        logger.error({ err }, "Failed to load jobs to heap");
+    }
+  }, HEAP_RELOAD_INTERVAL_MS)
 }
 
 /**
@@ -96,7 +122,7 @@ export async function startWorker(): Promise<void> {
   // Poll loop runs until shuttingDown is set.
   // We don't await it - caller proceeds immediately.
   pollLoop().catch((err) => {
-    console.error("[worker] Poll loop crashed:", err);
+    logger.fatal({ err }, "Poll loop crashed — exiting");
     process.exit(1);
   });
 
@@ -121,13 +147,19 @@ export async function stopWorker(): Promise<void> {
     cleanupTimer = null;
   }
 
+  if (newHeapTimer !== null) {
+    clearInterval(newHeapTimer);
+    newHeapTimer = null;
+  }
+
   if (inflightJob) {
-    console.log("[worker] Waiting for in-flight job to finish...");
+    logger.info("Waiting for in-flight job to finish before shutdown");
 
     const timeout = new Promise<void>((resolve) =>
       setTimeout(() => {
-        console.warn(
-          `[worker] In-flight job did not finish within ${SHUTDOWN_TIMEOUT_MS}ms. Proceeding with shutdown.`,
+        logger.warn(
+          { timeoutMs: SHUTDOWN_TIMEOUT_MS },
+          "In-flight job did not finish within shutdown timeout — proceeding",
         );
         resolve();
       }, SHUTDOWN_TIMEOUT_MS),

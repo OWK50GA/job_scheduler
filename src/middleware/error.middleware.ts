@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
+import { logger } from "../logger";
 
 export class AppError extends Error {
   constructor(
@@ -17,7 +18,6 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  // Known operational error - thrown deliberately
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
       status: "error",
@@ -26,7 +26,6 @@ export function errorHandler(
     return;
   }
 
-  // already using safeParse, so shouldn't actually ever happen
   if (err instanceof ZodError) {
     const issue = err.issues[0];
     res.status(400).json({
@@ -36,8 +35,9 @@ export function errorHandler(
     return;
   }
 
-  // Unknown error
-  console.error(err);
+  // Unknown error — log it with full context
+  logger.error({ err, url: req.url, method: req.method }, "Unhandled error");
+
   res.status(500).json({
     status: "error",
     message:

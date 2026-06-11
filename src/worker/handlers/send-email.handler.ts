@@ -35,8 +35,6 @@ export async function sendEmailHandler(job: Job): Promise<HandlerResult> {
     const { error: sendMailError, result } = await send(data);
 
     if (sendMailError) {
-        // Log the result when you set up logger
-        console.log(sendMailError);
         return {
             success: false,
             error: sendMailError,

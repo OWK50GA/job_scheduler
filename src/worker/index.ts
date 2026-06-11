@@ -1,48 +1,47 @@
 import { config } from "dotenv";
 config();
 
+import { logger } from "../logger";
 import { startWorker, stopWorker } from "./worker";
+import { closeJobLogger } from "./logger";
 
 let isShuttingDown = false;
 
 async function main() {
-  console.log("[worker] Starting worker process...");
+  logger.info("Worker process starting");
 
   await startWorker();
 
-  console.log("[worker] Worker is running. Polling for jobs...");
+  logger.info("Worker running — polling for jobs");
 }
 
 async function shutdown(signal: string) {
   if (isShuttingDown) return;
   isShuttingDown = true;
 
-  console.log(`[worker] Received ${signal}. Shutting down gracefully...`);
+  logger.info({ signal }, "Graceful shutdown initiated");
 
   await stopWorker();
+  await closeJobLogger();
 
-  console.log("[worker] Shutdown complete.");
+  logger.info("Worker shutdown complete");
   process.exit(0);
 }
 
-// Graceful shutdown on signals
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
-// If something throws and nobody caught it, log it and exit
-// An uncaught exception in a background worker is always a bug —
-// we want to know about it immediately rather than silently continue
 process.on("uncaughtException", (err) => {
-  console.error("[worker] Uncaught exception:", err);
+  logger.fatal({ err }, "Uncaught exception — exiting");
   process.exit(1);
 });
 
 process.on("unhandledRejection", (reason) => {
-  console.error("[worker] Unhandled promise rejection:", reason);
+  logger.fatal({ reason }, "Unhandled promise rejection — exiting");
   process.exit(1);
 });
 
 main().catch((err) => {
-  console.error("[worker] Failed to start:", err);
+  logger.fatal({ err }, "Worker failed to start");
   process.exit(1);
 });

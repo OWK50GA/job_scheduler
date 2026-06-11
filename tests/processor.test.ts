@@ -28,6 +28,12 @@ vi.mock("../src/worker/handlers", () => ({
   sendEmailHandler: vi.fn(),
 }));
 
+// processor.ts now calls logJobEvent on every branch — mock it so
+// tests don't need a DB connection just for logging
+vi.mock("../src/worker/logger", () => ({
+  logJobEvent: vi.fn(),
+}));
+
 // Import AFTER vi.mock declarations
 import { processJob } from "../src/worker/processor";
 import { sendEmailHandler } from "../src/worker/handlers";
