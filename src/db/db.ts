@@ -33,7 +33,7 @@ export class DatabaseClient {
   }
 
   async insertJob(input: InsertJobInput): Promise<Job> {
-    const { type, payload, priority, scheduled_at, recur_interval } = input;
+    const { type, payload, priority, scheduled_at, recur_interval, depends_on } = input;
 
     const result = await this.pool.query<Job>(
       `INSERT INTO jobs (type, payload, priority, scheduled_at, recur_interval)
@@ -48,7 +48,20 @@ export class DatabaseClient {
       ],
     );
 
-    return result.rows[0];
+    const job = result.rows[0];
+
+    // If a dependency was declared, insert the edge in parallel with returning
+    // the job. The insert is intentionally outside the main query so that the
+    // job row exists before the FK reference is made.
+    if (depends_on) {
+      await this.pool.query(
+        `INSERT INTO job_dependencies (job_id, depends_on_id)
+         VALUES ($1, $2)`,
+        [job.id, depends_on],
+      );
+    }
+
+    return job;
   }
 
   async getJob(id: string): Promise<Job | null> {
@@ -479,14 +492,38 @@ export class DatabaseClient {
    *
    * @param limit  Maximum number of jobs to return. Default 100.
    */
+  /**
+   * Fetches the next batch of eligible jobs for the scheduler heap.
+   *
+   * Eligibility rules:
+   * - status = 'pending'
+   * - scheduled_at <= NOW()
+   * - next_retry_at IS NULL OR next_retry_at <= NOW()
+   * - ALL declared dependencies have status = 'completed'
+   *   (jobs with any unmet dependency are excluded entirely — they never
+   *   enter the heap and are never claimed until the dependency finishes)
+   *
+   * The dependency filter uses a NOT EXISTS subquery rather than a JOIN so
+   * that jobs with no rows in job_dependencies pass through unchanged.
+   * A LEFT JOIN approach would require a HAVING clause and is harder to read.
+   *
+   * @param limit  Maximum number of jobs to return. Default 100.
+   */
   async fetchDueJobs(limit = 100): Promise<Job[]> {
     const result = await this.pool.query<Job>(
-      `SELECT *
-       FROM   jobs
-       WHERE  status = 'pending'
-         AND  scheduled_at <= NOW()
-         AND  (next_retry_at IS NULL OR next_retry_at <= NOW())
-       ORDER BY priority ASC, scheduled_at ASC, created_at ASC
+      `SELECT j.*
+       FROM   jobs j
+       WHERE  j.status = 'pending'
+         AND  j.scheduled_at <= NOW()
+         AND  (j.next_retry_at IS NULL OR j.next_retry_at <= NOW())
+         AND  NOT EXISTS (
+                SELECT 1
+                FROM   job_dependencies jd
+                JOIN   jobs             dep ON dep.id = jd.depends_on_id
+                WHERE  jd.job_id  = j.id
+                  AND  dep.status <> 'completed'
+              )
+       ORDER BY j.priority ASC, j.scheduled_at ASC, j.created_at ASC
        LIMIT  $1`,
       [limit],
     );
@@ -596,6 +633,37 @@ export class DatabaseClient {
     );
 
     return result.rows[0];
+  }
+
+  /**
+   * Checks whether all declared dependencies of a job have completed
+   * successfully.
+   *
+   * A job is eligible to run when every row in job_dependencies where
+   * job_id = jobId has a corresponding dependency job whose status is
+   * 'completed'.
+   *
+   * Returns true in two cases:
+   *   1. The job has no dependencies at all (no rows for jobId).
+   *   2. Every dependency job has status = 'completed'.
+   *
+   * Returns false when at least one dependency is still pending, processing,
+   * failed, or cancelled — i.e. the job must not be picked up yet.
+   *
+   * This is called in processJob (and optionally in fetchDueJobs) before
+   * handing a job to a handler.
+   */
+  async checkDependenciesMet(jobId: string): Promise<boolean> {
+    const result = await this.pool.query<{ unmet: string }>(
+      `SELECT COUNT(*) AS unmet
+       FROM   job_dependencies jd
+       JOIN   jobs              j  ON j.id = jd.depends_on_id
+       WHERE  jd.job_id = $1
+         AND  j.status  <> 'completed'`,
+      [jobId],
+    );
+
+    return parseInt(result.rows[0].unmet, 10) === 0;
   }
 
   /**

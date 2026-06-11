@@ -36,6 +36,11 @@ export const CreateJobSchema = z.object({
         "recur_interval must be one of: every_1_minute, every_5_minutes, every_1_hour",
     })
     .optional(),
+
+  depends_on: z
+    .string({ error: "depends_on must be a UUID string" })
+    .uuid({ message: "depends_on must be a valid UUID" })
+    .optional(),
 });
 
 export type CreateJobInput = z.infer<typeof CreateJobSchema>;

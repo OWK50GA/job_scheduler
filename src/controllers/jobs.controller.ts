@@ -24,15 +24,30 @@ export async function createJob(
       message: `${String(issue.path[0])}: ${issue.message}`,
     });
   }
-  const { type, payload, priority, scheduled_at, recur_interval } = data;
+  const { type, payload, priority, scheduled_at, recur_interval, depends_on } = data;
 
   try {
+    // If a dependency is declared, verify the referenced job actually exists.
+    // We don't restrict by status - the dependency may still be pending or
+    // processing, and that's fine. checkDependenciesMet in processJob handles
+    // the runtime gate. We only need to confirm the ID is valid.
+    if (depends_on) {
+      const dep = await dbClient.getJob(depends_on);
+      if (!dep) {
+        return res.status(400).json({
+          status: "error",
+          message: `depends_on: job ${depends_on} does not exist`,
+        });
+      }
+    }
+
     const input: InsertJobInput = {
       type,
       payload,
       priority,
       scheduled_at: scheduled_at ? new Date(scheduled_at) : undefined,
       recur_interval,
+      depends_on,
     };
 
     const job = await dbClient.insertJob(input);

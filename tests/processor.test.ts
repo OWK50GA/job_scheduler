@@ -16,6 +16,7 @@ const mockDb = vi.hoisted(() => ({
   markJobDeadLetter: vi.fn(),
   cancelJob: vi.fn(),
   scheduleNextRecurringRun: vi.fn(),
+  checkDependenciesMet: vi.fn(),
 }));
 
 vi.mock("../src/db", () => ({
@@ -104,6 +105,8 @@ describe("processJob", () => {
       makeJob({ status: JobStatus.CANCELLED }),
     );
     mockDb.scheduleNextRecurringRun.mockResolvedValue(makeJob());
+
+    mockDb.checkDependenciesMet.mockResolvedValue(true);
   });
 
   // ── Happy path ──────────────────────────────────────────────────────────────

@@ -93,6 +93,7 @@ export type InsertJobInput = {
   priority: 1 | 2 | 3;
   scheduled_at?: Date;
   recur_interval?: string;
+  depends_on?: string; //
 };
 
 export type JobStats = {

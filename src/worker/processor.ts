@@ -71,6 +71,27 @@ export async function processJob(job: Job) {
       return await dbClient.cancelJob(job.id);
     }
 
+    // DAG dependency gate — re-queue if any dependency has not yet completed.
+    // The job was already claimed (status = processing), so we must reset it
+    // back to pending so the poll loop can pick it up again later.
+    const depsMet = await dbClient.checkDependenciesMet(job.id);
+    if (!depsMet) {
+      logJobEvent({
+        jobId: job.id,
+        event: "retry_attempted",
+        message: "Dependencies not yet met - releasing back to pending",
+      });
+      // Reset to pending with a short backoff so it is not immediately
+      // re-claimed before its dependencies have a chance to complete.
+      const retryAt = new Date(Date.now() + 5_000);
+      return await dbClient.markJobRetryable(
+        job.id,
+        "Waiting for dependencies",
+        retryAt,
+        0,
+      );
+    }
+
     logJobEvent({
       jobId: job.id,
       event: "job_started",
