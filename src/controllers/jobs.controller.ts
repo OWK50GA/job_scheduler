@@ -151,3 +151,86 @@ export async function getSingleJob(
     next(err);
   }
 }
+
+export async function cancelJob(req: Request, res: Response, next: NextFunction) {
+  const { success, error, data } = GetSingleJobSchema.safeParse(req.params);
+
+  if (!success) {
+    const issue = error.issues[0];
+    return res.status(400).json({
+      status: "error",
+      message: `${String(issue.path[0])}: ${issue.message}`,
+    });
+  }
+
+  const { id } = data;
+
+  try {
+    const job = await dbClient.getJob(id);
+    
+    if (!job) {
+      throw new AppError(404, `Job with ${id} does not exist`);
+    }
+    
+    const cancelledJob = await dbClient.cancelJob(id);
+
+    if (!cancelledJob) {
+      throw new AppError(409, `Your request conflicts with the current resource state`);
+    }
+
+    return res.status(200).json({
+      status: "success",
+      data: cancelledJob,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function manualRetryJob(req: Request, res: Response, next: NextFunction) {
+  const { success, error, data } = GetSingleJobSchema.safeParse(req.params);
+
+  if (!success) {
+    const issue = error.issues[0];
+    return res.status(400).json({
+      status: "error",
+      message: `${String(issue.path[0])}: ${issue.message}`,
+    });
+  }
+
+  const { id } = data;
+
+  try {
+    const job = await dbClient.getJob(id);
+
+    if (!job) {
+      throw new AppError(404, `Job with ${id} does not exist`);
+    }
+    
+    const retriedJob = await dbClient.manualRetryJob(id);
+
+    if (!retriedJob) {
+      throw new AppError(409, `Your request conflicts with the current resource state`);
+    }
+
+    return res.status(200).json({
+      status: "success",
+      data: retriedJob,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getJobStats(req: Request, res: Response, next: NextFunction) {
+  try {
+    const stats = await dbClient.getJobStats();
+
+    return res.status(200).json({
+      status: "success",
+      data: stats
+    })
+  } catch (err) {
+    next(err);
+  }
+}
