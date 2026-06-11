@@ -59,7 +59,10 @@ describe("DatabaseClient.insertJob", () => {
     expect(job.created_at).toBeInstanceOf(Date);
     expect(job.updated_at).toBeInstanceOf(Date);
     // payload round-trips correctly
-    expect(job.payload).toMatchObject({ to: "user@example.com", subject: "Hello" });
+    expect(job.payload).toMatchObject({
+      to: "user@example.com",
+      subject: "Hello",
+    });
   });
 
   it("defaults scheduled_at to approximately now when not provided", async () => {
@@ -67,8 +70,12 @@ describe("DatabaseClient.insertJob", () => {
     const job = await db.insertJob({ type: TYPE, payload: {}, priority: 2 });
     const after = new Date();
 
-    expect(job.scheduled_at.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000);
-    expect(job.scheduled_at.getTime()).toBeLessThanOrEqual(after.getTime() + 1000);
+    expect(job.scheduled_at.getTime()).toBeGreaterThanOrEqual(
+      before.getTime() - 1000,
+    );
+    expect(job.scheduled_at.getTime()).toBeLessThanOrEqual(
+      after.getTime() + 1000,
+    );
   });
 
   it("stores the provided scheduled_at", async () => {
@@ -81,7 +88,9 @@ describe("DatabaseClient.insertJob", () => {
     });
 
     // Within 1 second of what we sent (DB round-trip precision)
-    expect(Math.abs(job.scheduled_at.getTime() - future.getTime())).toBeLessThan(1000);
+    expect(
+      Math.abs(job.scheduled_at.getTime() - future.getTime()),
+    ).toBeLessThan(1000);
   });
 
   it("stores recur_interval as null when not provided", async () => {
@@ -111,7 +120,11 @@ describe("DatabaseClient.getJob", () => {
   });
 
   it("returns the job by id", async () => {
-    const inserted = await db.insertJob({ type: TYPE, payload: { x: 1 }, priority: 1 });
+    const inserted = await db.insertJob({
+      type: TYPE,
+      payload: { x: 1 },
+      priority: 1,
+    });
 
     const fetched = await db.getJob(inserted.id);
 
@@ -137,7 +150,11 @@ describe("DatabaseClient.getAllJobs", () => {
   beforeEach(async () => {
     await deleteByTypePrefix(TYPE); // clean slate
     for (let i = 0; i < 5; i++) {
-      await db.insertJob({ type: TYPE, payload: {}, priority: (([1, 2, 3, 1, 2]) as const)[i] });
+      await db.insertJob({
+        type: TYPE,
+        payload: {},
+        priority: ([1, 2, 3, 1, 2] as const)[i],
+      });
     }
     // Insert 2 cancelled jobs directly via pool
     await pool.query(
@@ -180,7 +197,9 @@ describe("DatabaseClient.getAllJobs", () => {
     });
 
     expect(result.total).toBe(2);
-    expect(result.records.every((j) => j.status === JobStatus.CANCELLED)).toBe(true);
+    expect(result.records.every((j) => j.status === JobStatus.CANCELLED)).toBe(
+      true,
+    );
   });
 
   it("filters by priority correctly", async () => {
@@ -208,7 +227,10 @@ describe("DatabaseClient.getAllJobs", () => {
   });
 
   it("returns empty records array when no jobs match the filter", async () => {
-    const result = await db.getAllJobs({ type: TYPE, status: JobStatus.FAILED });
+    const result = await db.getAllJobs({
+      type: TYPE,
+      status: JobStatus.FAILED,
+    });
     expect(result.records).toHaveLength(0);
     expect(result.total).toBe(0);
   });
@@ -244,8 +266,11 @@ describe("DatabaseClient.getJobStats", () => {
 
     // total = sum of individual status counts
     const sumOfStatuses =
-      stats.pending + stats.processing + stats.completed +
-      stats.failed + stats.cancelled;
+      stats.pending +
+      stats.processing +
+      stats.completed +
+      stats.failed +
+      stats.cancelled;
     expect(stats.total).toBe(sumOfStatuses);
   });
 
@@ -332,9 +357,12 @@ describe("DatabaseClient.getDLQJobs", () => {
     const result = await db.getDLQJobs(1, 50);
 
     // All returned jobs must be in the DLQ
-    expect(result.records.every(
-      (j) => j.status === JobStatus.FAILED && j.attempt_count >= j.max_retries
-    )).toBe(true);
+    expect(
+      result.records.every(
+        (j) =>
+          j.status === JobStatus.FAILED && j.attempt_count >= j.max_retries,
+      ),
+    ).toBe(true);
 
     // Non-DLQ failed jobs must NOT appear
     expect(result.total).toBe(3);

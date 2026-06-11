@@ -4,66 +4,69 @@ import { EmailPayload, HandlerResult, SendEmailResult } from "../types";
 import { EmailPayloadSchema } from "./validation";
 
 /**
- * job type should be send_email  
-*/
+ * job type should be send_email
+ */
 export async function sendEmailHandler(job: Job): Promise<HandlerResult> {
-    const start = Date.now();
+  const start = Date.now();
 
-    if (job.type !== "send_email") {
-        const res: HandlerResult = {
-            success: false,
-            error: "Invalid Job type for handler",
-            durationMs: Date.now() - start,
-        }
+  if (job.type !== "send_email") {
+    const res: HandlerResult = {
+      success: false,
+      error: "Invalid Job type for handler",
+      durationMs: Date.now() - start,
+    };
 
-        return res;
-    }
+    return res;
+  }
 
-    const { success, error, data } = EmailPayloadSchema.safeParse(job.payload);
+  const { success, error, data } = EmailPayloadSchema.safeParse(job.payload);
 
-    if (!success) {
-        const issue = error.issues[0];
-        const res: HandlerResult = {
-            success: false,
-            error: `${String(issue.path)}: ${issue.message}`,
-            durationMs: Date.now() - start,
-        }
+  if (!success) {
+    const issue = error.issues[0];
+    const res: HandlerResult = {
+      success: false,
+      error: `${String(issue.path)}: ${issue.message}`,
+      durationMs: Date.now() - start,
+    };
 
-        return res;
-    }
+    return res;
+  }
 
-    const { error: sendMailError, result } = await send(data);
+  const { error: sendMailError, result } = await send(data);
 
-    if (sendMailError) {
-        return {
-            success: false,
-            error: sendMailError,
-            durationMs: Date.now() - start,
-        }
-    }
-
+  if (sendMailError) {
     return {
-        success: true,
-        result,
-        durationMs: Date.now() - start,
-    }
+      success: false,
+      error: sendMailError,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  return {
+    success: true,
+    result,
+    durationMs: Date.now() - start,
+  };
 }
 
 const send = async (_payload: EmailPayload): Promise<SendEmailResult> => {
-    return await flakySleep(500);
-}
+  return await flakySleep(500);
+};
 
-const flakySleep = async (ms: number, failRate = 0.1): Promise<SendEmailResult> => {
-  await new Promise(resolve => setTimeout(resolve, ms));
-  
+const flakySleep = async (
+  ms: number,
+  failRate = 0.1,
+): Promise<SendEmailResult> => {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+
   if (Math.random() <= failRate) {
-    const errorIndex = Math.floor(Math.random() * errors.length)
+    const errorIndex = Math.floor(Math.random() * errors.length);
     const error = errors[errorIndex];
 
     const res: SendEmailResult = {
-        success: false,
-        error
-    }
+      success: false,
+      error,
+    };
 
     return res;
   }
@@ -71,9 +74,9 @@ const flakySleep = async (ms: number, failRate = 0.1): Promise<SendEmailResult> 
   return {
     success: true,
     result: {
-        messageId: randomUUID(),
-    }
-  }
+      messageId: randomUUID(),
+    },
+  };
 };
 
 const errors = [

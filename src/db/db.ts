@@ -1,6 +1,12 @@
 import { Pool } from "pg";
 import { config } from "dotenv";
-import { InsertJobInput, Job, JobQueryOptions, JobStats, JobStatus } from "../types";
+import {
+  InsertJobInput,
+  Job,
+  JobQueryOptions,
+  JobStats,
+  JobStatus,
+} from "../types";
 
 config();
 
@@ -317,20 +323,23 @@ export class DatabaseClient {
 
       const job = result.rows[0];
 
-      await client.query(`
+      await client.query(
+        `
         UPDATE jobs
         SET status = 'processing',
             started_at = NOW(),
             updated_at = NOW()
         WHERE id = $1
-      `, [job.id]);
+      `,
+        [job.id],
+      );
 
       await client.query("COMMIT");
 
       return {
         ...job,
-        status: JobStatus.PROCESSING
-      }
+        status: JobStatus.PROCESSING,
+      };
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;

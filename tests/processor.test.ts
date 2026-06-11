@@ -44,7 +44,12 @@ function makeJob(overrides: Partial<Job> = {}): Job {
   return {
     id: "test-job-id",
     type: "send_email",
-    payload: { to: "user@example.com", subject: "Hello", from: "noreply@example.com", html: "<p>Hi</p>" },
+    payload: {
+      to: "user@example.com",
+      subject: "Hello",
+      from: "noreply@example.com",
+      html: "<p>Hi</p>",
+    },
     status: JobStatus.PROCESSING,
     priority: 2,
     attempt_count: 0,
@@ -63,7 +68,9 @@ function makeJob(overrides: Partial<Job> = {}): Job {
   };
 }
 
-function makeHandlerResult(overrides: Partial<HandlerResult> = {}): HandlerResult {
+function makeHandlerResult(
+  overrides: Partial<HandlerResult> = {},
+): HandlerResult {
   return {
     success: true,
     result: { messageId: "msg-123" },
@@ -84,10 +91,18 @@ describe("processJob", () => {
     mockDb.getJob.mockResolvedValue(makeJob());
 
     // Default resolved values for DB writes
-    mockDb.markJobCompleted.mockResolvedValue(makeJob({ status: JobStatus.COMPLETED }));
-    mockDb.markJobRetryable.mockResolvedValue(makeJob({ status: JobStatus.PENDING }));
-    mockDb.markJobDeadLetter.mockResolvedValue(makeJob({ status: JobStatus.FAILED }));
-    mockDb.cancelJob.mockResolvedValue(makeJob({ status: JobStatus.CANCELLED }));
+    mockDb.markJobCompleted.mockResolvedValue(
+      makeJob({ status: JobStatus.COMPLETED }),
+    );
+    mockDb.markJobRetryable.mockResolvedValue(
+      makeJob({ status: JobStatus.PENDING }),
+    );
+    mockDb.markJobDeadLetter.mockResolvedValue(
+      makeJob({ status: JobStatus.FAILED }),
+    );
+    mockDb.cancelJob.mockResolvedValue(
+      makeJob({ status: JobStatus.CANCELLED }),
+    );
     mockDb.scheduleNextRecurringRun.mockResolvedValue(makeJob());
   });
 
@@ -95,7 +110,10 @@ describe("processJob", () => {
 
   describe("successful job", () => {
     it("calls markJobCompleted with the handler result and duration", async () => {
-      const result = makeHandlerResult({ result: { messageId: "abc" }, durationMs: 200 });
+      const result = makeHandlerResult({
+        result: { messageId: "abc" },
+        durationMs: 200,
+      });
       handler.mockResolvedValue(result);
 
       const job = makeJob();
@@ -148,7 +166,11 @@ describe("processJob", () => {
   describe("handler failure — retries remaining", () => {
     it("calls markJobRetryable when attempt_count + 1 < max_retries", async () => {
       handler.mockResolvedValue(
-        makeHandlerResult({ success: false, error: "SMTP timeout", durationMs: 180 }),
+        makeHandlerResult({
+          success: false,
+          error: "SMTP timeout",
+          durationMs: 180,
+        }),
       );
       // attempt_count=0, max_retries=3 → still has 2 retries left
       const job = makeJob({ attempt_count: 0, max_retries: 3 });
@@ -163,14 +185,18 @@ describe("processJob", () => {
     });
 
     it("does not call markJobDeadLetter when retries remain", async () => {
-      handler.mockResolvedValue(makeHandlerResult({ success: false, error: "fail" }));
+      handler.mockResolvedValue(
+        makeHandlerResult({ success: false, error: "fail" }),
+      );
       await processJob(makeJob({ attempt_count: 0, max_retries: 3 }));
 
       expect(mockDb.markJobDeadLetter).not.toHaveBeenCalled();
     });
 
     it("passes a future Date as nextRetryAt to markJobRetryable", async () => {
-      handler.mockResolvedValue(makeHandlerResult({ success: false, error: "fail" }));
+      handler.mockResolvedValue(
+        makeHandlerResult({ success: false, error: "fail" }),
+      );
       const before = Date.now();
 
       await processJob(makeJob({ attempt_count: 0, max_retries: 3 }));
@@ -186,7 +212,11 @@ describe("processJob", () => {
   describe("handler failure — retries exhausted", () => {
     it("calls markJobDeadLetter when attempt_count + 1 >= max_retries", async () => {
       handler.mockResolvedValue(
-        makeHandlerResult({ success: false, error: "Mailbox not found", durationMs: 90 }),
+        makeHandlerResult({
+          success: false,
+          error: "Mailbox not found",
+          durationMs: 90,
+        }),
       );
       // attempt_count=2, max_retries=3 → this is the last attempt
       const job = makeJob({ attempt_count: 2, max_retries: 3 });
@@ -194,11 +224,17 @@ describe("processJob", () => {
       await processJob(job);
 
       expect(mockDb.markJobDeadLetter).toHaveBeenCalledOnce();
-      expect(mockDb.markJobDeadLetter).toHaveBeenCalledWith(job.id, "Mailbox not found", 90);
+      expect(mockDb.markJobDeadLetter).toHaveBeenCalledWith(
+        job.id,
+        "Mailbox not found",
+        90,
+      );
     });
 
     it("calls markJobDeadLetter when attempt_count already equals max_retries", async () => {
-      handler.mockResolvedValue(makeHandlerResult({ success: false, error: "fail" }));
+      handler.mockResolvedValue(
+        makeHandlerResult({ success: false, error: "fail" }),
+      );
       const job = makeJob({ attempt_count: 3, max_retries: 3 });
 
       await processJob(job);
@@ -207,7 +243,9 @@ describe("processJob", () => {
     });
 
     it("does not call markJobRetryable when retries are exhausted", async () => {
-      handler.mockResolvedValue(makeHandlerResult({ success: false, error: "fail" }));
+      handler.mockResolvedValue(
+        makeHandlerResult({ success: false, error: "fail" }),
+      );
       await processJob(makeJob({ attempt_count: 2, max_retries: 3 }));
 
       expect(mockDb.markJobRetryable).not.toHaveBeenCalled();
@@ -225,7 +263,9 @@ describe("processJob", () => {
       { attempt: 1, minMs: 4000, maxMs: 6000, label: "attempt 1 → ~5s" },
       { attempt: 2, minMs: 20000, maxMs: 30000, label: "attempt 2 → ~25s" },
     ])("$label", async ({ attempt, minMs, maxMs }) => {
-      handler.mockResolvedValue(makeHandlerResult({ success: false, error: "fail" }));
+      handler.mockResolvedValue(
+        makeHandlerResult({ success: false, error: "fail" }),
+      );
       // Ensure retries are still available
       const job = makeJob({ attempt_count: attempt, max_retries: 10 });
 
@@ -337,7 +377,9 @@ describe("processJob", () => {
       await processJob(job);
 
       expect(mockDb.markJobRetryable).toHaveBeenCalledOnce();
-      expect(mockDb.markJobRetryable.mock.calls[0][1]).toBe("Unexpected network failure");
+      expect(mockDb.markJobRetryable.mock.calls[0][1]).toBe(
+        "Unexpected network failure",
+      );
     });
 
     it("catches the exception and routes to markJobDeadLetter when retries exhausted", async () => {
@@ -356,7 +398,9 @@ describe("processJob", () => {
 
       await processJob(job);
 
-      expect(mockDb.markJobDeadLetter.mock.calls[0][1]).toBe("plain string error");
+      expect(mockDb.markJobDeadLetter.mock.calls[0][1]).toBe(
+        "plain string error",
+      );
     });
 
     it("does not call markJobCompleted when an exception is thrown", async () => {

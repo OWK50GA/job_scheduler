@@ -152,7 +152,11 @@ export async function getSingleJob(
   }
 }
 
-export async function cancelJob(req: Request, res: Response, next: NextFunction) {
+export async function cancelJob(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   const { success, error, data } = GetSingleJobSchema.safeParse(req.params);
 
   if (!success) {
@@ -167,15 +171,18 @@ export async function cancelJob(req: Request, res: Response, next: NextFunction)
 
   try {
     const job = await dbClient.getJob(id);
-    
+
     if (!job) {
       throw new AppError(404, `Job with ${id} does not exist`);
     }
-    
+
     const cancelledJob = await dbClient.cancelJob(id);
 
     if (!cancelledJob) {
-      throw new AppError(409, `Your request conflicts with the current resource state`);
+      throw new AppError(
+        409,
+        `Your request conflicts with the current resource state`,
+      );
     }
 
     return res.status(200).json({
@@ -187,7 +194,11 @@ export async function cancelJob(req: Request, res: Response, next: NextFunction)
   }
 }
 
-export async function manualRetryJob(req: Request, res: Response, next: NextFunction) {
+export async function manualRetryJob(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   const { success, error, data } = GetSingleJobSchema.safeParse(req.params);
 
   if (!success) {
@@ -206,11 +217,14 @@ export async function manualRetryJob(req: Request, res: Response, next: NextFunc
     if (!job) {
       throw new AppError(404, `Job with ${id} does not exist`);
     }
-    
+
     const retriedJob = await dbClient.manualRetryJob(id);
 
     if (!retriedJob) {
-      throw new AppError(409, `Your request conflicts with the current resource state`);
+      throw new AppError(
+        409,
+        `Your request conflicts with the current resource state`,
+      );
     }
 
     return res.status(200).json({
@@ -222,14 +236,18 @@ export async function manualRetryJob(req: Request, res: Response, next: NextFunc
   }
 }
 
-export async function getJobStats(req: Request, res: Response, next: NextFunction) {
+export async function getJobStats(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const stats = await dbClient.getJobStats();
 
     return res.status(200).json({
       status: "success",
-      data: stats
-    })
+      data: stats,
+    });
   } catch (err) {
     next(err);
   }

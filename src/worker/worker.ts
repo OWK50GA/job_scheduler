@@ -6,7 +6,7 @@ import { MinHeap } from "./scheduler";
 
 const POLL_INTERVAL_MS = 1_000;
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1_000; // 5 minutes
-const HEAP_RELOAD_INTERVAL_MS = 30 * 1_000;  // 30 seconds
+const HEAP_RELOAD_INTERVAL_MS = 30 * 1_000; // 30 seconds
 const SHUTDOWN_TIMEOUT_MS = 30 * 1_000;
 
 const dbClient = new DatabaseClient();
@@ -19,7 +19,7 @@ let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 let newHeapTimer: ReturnType<typeof setInterval> | null = null;
 
 async function loadDueJobs(): Promise<Job[]> {
-    return await dbClient.fetchDueJobs();
+  return await dbClient.fetchDueJobs();
 }
 
 /**
@@ -28,26 +28,28 @@ async function loadDueJobs(): Promise<Job[]> {
  * Returns true if a job was found, false if the queue was empty.
  */
 async function tick(): Promise<boolean> {
-    if (heap.size() === 0) {
-        const jobs = await loadDueJobs();
-        heap.insert(jobs);
-    }
+  if (heap.size() === 0) {
+    const jobs = await loadDueJobs();
+    heap.insert(jobs);
+  }
 
-    const nextJobId = heap.pop()?.id;
+  const nextJobId = heap.pop()?.id;
 
-    if (!nextJobId) {
-        return false;
-    }
+  if (!nextJobId) {
+    return false;
+  }
 
-    const job = await dbClient.claimJobById(nextJobId);
+  const job = await dbClient.claimJobById(nextJobId);
 
-    if (!job) {
-        return true;
-    }
+  if (!job) {
+    return true;
+  }
 
-  inflightJob = processJob(job).then(() => undefined).finally(() => {
-    inflightJob = null;
-  });
+  inflightJob = processJob(job)
+    .then(() => undefined)
+    .finally(() => {
+      inflightJob = null;
+    });
 
   await inflightJob;
 
@@ -101,11 +103,11 @@ function startCleanupInterval(): void {
   }, CLEANUP_INTERVAL_MS);
   newHeapTimer = setInterval(async () => {
     try {
-        heap.insert(await loadDueJobs())
+      heap.insert(await loadDueJobs());
     } catch (err) {
-        logger.error({ err }, "Failed to load jobs to heap");
+      logger.error({ err }, "Failed to load jobs to heap");
     }
-  }, HEAP_RELOAD_INTERVAL_MS)
+  }, HEAP_RELOAD_INTERVAL_MS);
 }
 
 /**

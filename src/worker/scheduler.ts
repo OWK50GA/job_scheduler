@@ -48,8 +48,7 @@ export class MinHeap {
    * Score is clamped to >= 0.
    */
   static scoreJob(job: Job): number {
-    const minutesWaiting =
-      (Date.now() - job.created_at.getTime()) / 60_000;
+    const minutesWaiting = (Date.now() - job.created_at.getTime()) / 60_000;
     const agingBonus =
       Math.floor(minutesWaiting / AGING_THRESHOLD_MINUTES) * AGING_STEP;
     return Math.max(0, job.priority - agingBonus);

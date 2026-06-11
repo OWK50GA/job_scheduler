@@ -175,7 +175,9 @@ describe("poll loop — empty queue", () => {
 
     // Advance past the poll interval — one more call (heap empty again → fetchDueJobs)
     await advanceAndFlush(600);
-    expect(mockDb.fetchDueJobs.mock.calls.length).toBeGreaterThan(callsAfterFirst);
+    expect(mockDb.fetchDueJobs.mock.calls.length).toBeGreaterThan(
+      callsAfterFirst,
+    );
 
     await stopWorker();
   });
@@ -210,7 +212,9 @@ describe("poll loop — job available", () => {
 
     // Load both jobs into the heap in a single fetchDueJobs call,
     // then return [] so the heap doesn't reload mid-test.
-    mockDb.fetchDueJobs.mockResolvedValueOnce([job1, job2]).mockResolvedValue([]);
+    mockDb.fetchDueJobs
+      .mockResolvedValueOnce([job1, job2])
+      .mockResolvedValue([]);
     // claimJobById is called for each popped job — return each in order
     mockDb.claimJobById
       .mockResolvedValueOnce(job1)
@@ -237,7 +241,9 @@ describe("poll loop — job available", () => {
     const job1 = makeJob({ id: "job-1" });
     const job2 = makeJob({ id: "job-2" });
 
-    mockDb.fetchDueJobs.mockResolvedValueOnce([job1, job2]).mockResolvedValue([]);
+    mockDb.fetchDueJobs
+      .mockResolvedValueOnce([job1, job2])
+      .mockResolvedValue([]);
     mockDb.claimJobById
       .mockResolvedValueOnce(job1)
       .mockResolvedValueOnce(job2)
@@ -261,7 +267,9 @@ describe("poll loop — job available", () => {
 
   it("clears inflightJob after processing completes", async () => {
     let resolveJob!: () => void;
-    const jobPromise = new Promise<void>((res) => { resolveJob = res; });
+    const jobPromise = new Promise<void>((res) => {
+      resolveJob = res;
+    });
 
     const job = makeJob();
     mockDb.fetchDueJobs.mockResolvedValueOnce([job]).mockResolvedValue([]);
@@ -319,7 +327,9 @@ describe("poll loop — error resilience", () => {
 
     // After backoff — new call
     await advanceAndFlush(600);
-    expect(mockDb.fetchDueJobs.mock.calls.length).toBeGreaterThan(callsAfterError);
+    expect(mockDb.fetchDueJobs.mock.calls.length).toBeGreaterThan(
+      callsAfterError,
+    );
 
     await stopWorker();
   });
@@ -373,7 +383,10 @@ describe("stopWorker", () => {
     let resolveJob!: () => void;
 
     const jobDone = new Promise<void>((res) => {
-      resolveJob = () => { jobFinished = true; res(); };
+      resolveJob = () => {
+        jobFinished = true;
+        res();
+      };
     });
 
     const job = makeJob();
@@ -411,7 +424,11 @@ describe("stopWorker", () => {
     let resolveJob: (() => void) | null = null;
     mockDb.fetchDueJobs.mockResolvedValueOnce([job]).mockResolvedValue([]);
     mockDb.claimJobById.mockResolvedValueOnce(job).mockResolvedValue(null);
-    mockProcessJob.mockReturnValue(new Promise<void>((res) => { resolveJob = res; }));
+    mockProcessJob.mockReturnValue(
+      new Promise<void>((res) => {
+        resolveJob = res;
+      }),
+    );
 
     await startWorker();
 
@@ -528,7 +545,9 @@ describe("heap reload interval", () => {
     // Advance past the heap reload interval
     await advanceAndFlush(30_000 + 100);
 
-    expect(mockDb.fetchDueJobs.mock.calls.length).toBeGreaterThan(callsAfterInit);
+    expect(mockDb.fetchDueJobs.mock.calls.length).toBeGreaterThan(
+      callsAfterInit,
+    );
   });
 
   it("stops heap reload interval after stopWorker", async () => {
