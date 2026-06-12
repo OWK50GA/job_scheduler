@@ -1,11 +1,41 @@
 import type { JobStatus } from "../../types";
 
-const STATUS_COLORS: Record<JobStatus, string> = {
-  processing: "#0ea5e9",
-  completed: "#10b981",
-  failed: "#ef4444",
-  pending: "#f59e0b",
-  cancelled: "#475569",
+interface StatusMeta {
+  label: string;
+  icon: string;
+  className: string;
+  iconClassName?: string;
+}
+
+const STATUS_META: Record<JobStatus, StatusMeta> = {
+  processing: {
+    label: "Processing",
+    icon: "refresh",
+    className: "border-primary/50 bg-primary/10 text-primary",
+    iconClassName: "animate-spin",
+  },
+  completed: {
+    label: "Completed",
+    icon: "done_all",
+    className: "border-secondary/50 bg-secondary/10 text-secondary",
+  },
+  failed: {
+    label: "Failed",
+    icon: "error_outline",
+    className: "border-error/50 bg-error/10 text-error",
+  },
+  pending: {
+    label: "Queued",
+    icon: "schedule",
+    className:
+      "border-outline/70 bg-surface-container-high text-on-surface-variant",
+  },
+  cancelled: {
+    label: "Cancelled",
+    icon: "block",
+    className:
+      "border-outline/70 bg-surface-container-high text-on-surface-variant",
+  },
 };
 
 interface StatusBadgeProps {
@@ -13,22 +43,18 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
+  const meta = STATUS_META[status];
+
   return (
     <span
-      style={{
-        backgroundColor: STATUS_COLORS[status],
-        color: "#ffffff",
-        padding: "2px 8px",
-        borderRadius: "9999px",
-        fontSize: "0.7rem",
-        fontWeight: 600,
-        letterSpacing: "0.05em",
-        textTransform: "uppercase",
-        display: "inline-block",
-        whiteSpace: "nowrap",
-      }}
+      className={`inline-flex items-center gap-1 rounded-sm border-l-2 px-2 py-1 font-code text-[10px] font-semibold uppercase tracking-technical ${meta.className}`.trim()}
     >
-      {status}
+      <span
+        className={`material-symbols-outlined text-[14px] ${meta.iconClassName ?? ""}`.trim()}
+      >
+        {meta.icon}
+      </span>
+      {meta.label}
     </span>
   );
 }

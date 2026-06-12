@@ -1,26 +1,23 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
+import { Button } from "../components/shared/Button";
+import { MockBadge } from "../components/shared/MockBadge";
+import { PageHeader } from "../components/shared/PageHeader";
+import { Panel } from "../components/shared/Panel";
+import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { StatCard } from "../components/shared/StatCard";
 import { StatusBadge } from "../components/shared/StatusBadge";
-import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { useSSE } from "../hooks/useSSE";
-import type { Job } from "../types";
+import type { Job, SSEEvent } from "../types";
 
-// ─── Palette ────────────────────────────────────────────────────────────────
-const surface = "#051424";
-const surfaceContainer = "#0f172a";
-const surfaceHigh = "#1e293b";
-const onSurface = "#f8fafc";
-const onSurfaceVariant = "#94a3b8";
 const primary = "#0ea5e9";
 const secondary = "#10b981";
 const error = "#ef4444";
 
-// ─── Dummy Data: jobs ────────────────────────────────────────────────────────
 const DUMMY_JOBS: Job[] = [
   {
-    id: "job-0001",
+    id: "job-892-v4",
     type: "ASYNC_TASK",
-    payload: { task: "send-report", recipient: "ops@example.com" },
+    payload: { task: "ImageResizeProcessor", cluster: "cdn-worker-04" },
     status: "processing",
     priority: 1,
     attempt_count: 1,
@@ -37,9 +34,9 @@ const DUMMY_JOBS: Job[] = [
     updated_at: "2025-07-10T08:00:05.000Z",
   },
   {
-    id: "job-0002",
+    id: "job-901-v2",
     type: "WEBHOOK_EVENT",
-    payload: { event: "order.placed", orderId: "ORD-8821" },
+    payload: { event: "EmailNotificationSync", worker: "mail-relay-01" },
     status: "completed",
     priority: 2,
     attempt_count: 1,
@@ -56,9 +53,9 @@ const DUMMY_JOBS: Job[] = [
     updated_at: "2025-07-10T07:50:04.312Z",
   },
   {
-    id: "job-0003",
+    id: "job-721-x0",
     type: "ASYNC_TASK",
-    payload: { task: "generate-invoice", customerId: "CUST-441" },
+    payload: { task: "DatabaseIndexClean", cluster: "db-core-02" },
     status: "failed",
     priority: 1,
     attempt_count: 3,
@@ -75,11 +72,11 @@ const DUMMY_JOBS: Job[] = [
     updated_at: "2025-07-10T07:31:10.000Z",
   },
   {
-    id: "job-0004",
+    id: "job-114-u9",
     type: "WEBHOOK_EVENT",
-    payload: { event: "payment.failed", paymentId: "PAY-9934" },
+    payload: { event: "AuditLogExport", worker: "audit-node-07" },
     status: "pending",
-    priority: 2,
+    priority: 3,
     attempt_count: 0,
     max_retries: 5,
     next_retry_at: "2025-07-10T08:10:00.000Z",
@@ -93,135 +90,34 @@ const DUMMY_JOBS: Job[] = [
     created_at: "2025-07-10T08:04:50.000Z",
     updated_at: "2025-07-10T08:04:50.000Z",
   },
-  {
-    id: "job-0005",
-    type: "ASYNC_TASK",
-    payload: { task: "sync-inventory", warehouseId: "WH-12" },
-    status: "completed",
-    priority: 3,
-    attempt_count: 1,
-    max_retries: 2,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T07:45:00.000Z",
-    recur_interval: "3600",
-    last_error: null,
-    result: { synced: 240 },
-    started_at: "2025-07-10T07:45:02.000Z",
-    completed_at: "2025-07-10T07:46:47.500Z",
-    cancelled_at: null,
-    created_at: "2025-07-10T07:44:55.000Z",
-    updated_at: "2025-07-10T07:46:47.500Z",
-  },
-  {
-    id: "job-0006",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "user.signup", userId: "USR-5571" },
-    status: "processing",
-    priority: 2,
-    attempt_count: 1,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T08:01:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: null,
-    started_at: "2025-07-10T08:01:03.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T08:00:55.000Z",
-    updated_at: "2025-07-10T08:01:03.000Z",
-  },
-  {
-    id: "job-0007",
-    type: "ASYNC_TASK",
-    payload: { task: "archive-logs", date: "2025-07-09" },
-    status: "cancelled",
-    priority: 3,
-    attempt_count: 0,
-    max_retries: 1,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T03:00:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: null,
-    started_at: null,
-    completed_at: null,
-    cancelled_at: "2025-07-10T03:00:01.000Z",
-    created_at: "2025-07-10T02:59:45.000Z",
-    updated_at: "2025-07-10T03:00:01.000Z",
-  },
-  {
-    id: "job-0008",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "subscription.renewed", planId: "PLAN-PRO" },
-    status: "failed",
-    priority: 1,
-    attempt_count: 5,
-    max_retries: 5,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T06:00:00.000Z",
-    recur_interval: null,
-    last_error: "NetworkError: upstream webhook returned 503",
-    result: null,
-    started_at: "2025-07-10T06:00:01.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T05:59:50.000Z",
-    updated_at: "2025-07-10T06:45:00.000Z",
-  },
 ]; // DUMMY DATA
 
-// ─── Dummy Data: DLQ payload ─────────────────────────────────────────────────
 const DLQ_PAYLOAD = {
-  id: "job-0003",
-  type: "ASYNC_TASK",
-  payload: { task: "generate-invoice", customerId: "CUST-441" },
-  status: "failed",
-  priority: 1,
-  attempt_count: 3,
-  max_retries: 3,
-  last_error: "TimeoutError: DB connection timed out after 5000ms",
+  job_id: "f82-a912-88ba",
+  attempt: 5,
+  origin: "prod-cluster-01",
+  data: {
+    user_uid: "USR_84221",
+    action: "billing.recurring_payment",
+  },
 }; // DUMMY DATA
 
-// DUMMY DATA
-const DLQ_STACK_TRACE = `TimeoutError: DB connection timed out after 5000ms
-    at Pool.connect (node_modules/pg/lib/pool.js:54:13)
-    at InvoiceProcessor.run (src/worker/handlers/generate-invoice.handler.ts:38:18)
-    at Worker.process (src/worker/processor.ts:91:22)
-    at processTicksAndRejections (node:internal/process/task_queues:140:5)`;
+const DLQ_STACK_TRACE = `at internal/modules/billing/worker.js:142:18
+at processTicksAndRejections (node:internal/process/task_queues:95:5)
+at async retryHandler (lib/retry-strategy.v2.js:12)`; // DUMMY DATA
 
-// ─── Dummy Data: log levels cycling ─────────────────────────────────────────
 const LOG_LEVELS = ["INFO", "WARN", "DEBUG", "ERROR"] as const; // DUMMY DATA
 
-// ─── Dummy Data: initial log lines ──────────────────────────────────────────
 const INITIAL_LOGS: string[] = [
-  `[2025-07-10T08:00:00.000Z] INFO  Worker pool initialised — 8 nodes online`,
-  `[2025-07-10T07:59:57.312Z] INFO  Job job-0001 picked up by node-04`,
-  `[2025-07-10T07:59:55.881Z] WARN  Retry queue depth: 3 jobs pending`,
-  `[2025-07-10T07:59:53.000Z] INFO  Job job-0002 completed in 3312ms`,
-  `[2025-07-10T07:59:51.445Z] DEBUG Heartbeat OK — node-01 through node-08`,
-  `[2025-07-10T07:59:48.002Z] ERROR Job job-0003 exhausted retries (3/3)`,
-  `[2025-07-10T07:59:46.110Z] INFO  Scheduler tick — 12 due jobs queued`,
-  `[2025-07-10T07:59:44.774Z] WARN  node-07 memory at 87% — throttling`,
-  `[2025-07-10T07:59:42.330Z] DEBUG SSE broadcast sent to 2 subscribers`,
-  `[2025-07-10T07:59:40.000Z] INFO  System startup complete`,
+  `[2025-07-10T08:00:00.000Z] INFO  Node-04 connection established`,
+  `[2025-07-10T07:59:57.312Z] WARN  Higher than normal latency on us-east-1 queue`,
+  `[2025-07-10T07:59:55.881Z] DEBUG Task job-892-v4 allocated to ImageProcessor:Worker2`,
+  `[2025-07-10T07:59:53.000Z] INFO  Completed sync of 42 entities in 12ms`,
+  `[2025-07-10T07:59:48.002Z] ERROR Redis connectivity timeout on instance 092 — reconnecting`,
 ]; // DUMMY DATA
 
-const LOG_BUFFER_SIZE = 10;
+const LOG_BUFFER_SIZE = 12;
 
-// ─── Runtime formatter ───────────────────────────────────────────────────────
-function formatRuntime(
-  started_at: string | null,
-  completed_at: string | null,
-): string {
-  if (!started_at || !completed_at) return "—";
-  const ms = new Date(completed_at).getTime() - new Date(started_at).getTime();
-  if (ms < 0) return "—";
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
-}
-
-// ─── Tab type ────────────────────────────────────────────────────────────────
 type TabValue = "ALL_TYPES" | "ASYNC_TASK" | "WEBHOOK_EVENT";
 
 const TABS: { label: string; value: TabValue }[] = [
@@ -230,493 +126,317 @@ const TABS: { label: string; value: TabValue }[] = [
   { label: "WEBHOOK_EVENT", value: "WEBHOOK_EVENT" },
 ];
 
-// ─── Component ───────────────────────────────────────────────────────────────
+function formatRuntime(startedAt: string | null, completedAt: string | null) {
+  if (!startedAt) return "—";
+  const endTime = completedAt ? new Date(completedAt).getTime() : Date.now();
+  const ms = endTime - new Date(startedAt).getTime();
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabValue>("ALL_TYPES");
   const [filterError, setFilterError] = useState(false);
   const [logs, setLogs] = useState<string[]>(INITIAL_LOGS);
 
-  const { data: sseData } = useSSE({ mockMode: true, intervalMs: 3000 });
-
-  // Prepend new log line on each SSE event
-  useEffect(() => {
-    if (!sseData) return;
+  const handleSSEEvent = useCallback((event: SSEEvent) => {
     const level = LOG_LEVELS[Math.floor(Math.random() * LOG_LEVELS.length)]; // DUMMY DATA
     const ts = new Date().toISOString();
-    const msg = `[${ts}] ${level.padEnd(5)} ${sseData.type}: job ${sseData.payload.id} → ${sseData.payload.status}`;
+    const msg = `[${ts}] ${level.padEnd(5)} ${event.type}: job ${event.payload.id} → ${event.payload.status}`;
     setLogs((prev) => [msg, ...prev].slice(0, LOG_BUFFER_SIZE));
-  }, [sseData]);
+  }, []);
 
-  // Filter jobs with error guard
+  const { connected } = useSSE({
+    mockMode: true,
+    intervalMs: 3000,
+    onEvent: handleSSEEvent,
+  });
+
   let filteredJobs: Job[] = DUMMY_JOBS;
+
   try {
     if (activeTab !== "ALL_TYPES") {
-      const tab = activeTab; // capture for type narrowing
-      filteredJobs = DUMMY_JOBS.filter((j) => j.type === tab);
+      filteredJobs = DUMMY_JOBS.filter((job) => job.type === activeTab);
     }
   } catch {
     filteredJobs = DUMMY_JOBS;
-    // filterError is managed in the tab click handler
   }
 
-  // ── Styles ──────────────────────────────────────────────────────────────────
-  const pageStyle: React.CSSProperties = {
-    backgroundColor: surface,
-    color: onSurface,
-    minHeight: "100vh",
-    padding: "1.5rem",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.5rem",
-    fontFamily:
-      "'Geist', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-  };
-
-  const sectionStyle: React.CSSProperties = {
-    backgroundColor: surfaceContainer,
-    borderRadius: "0.5rem",
-    padding: "1.25rem",
-  };
-
-  const sectionTitleStyle: React.CSSProperties = {
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    textTransform: "uppercase",
-    letterSpacing: "0.08em",
-    color: onSurfaceVariant,
-    marginBottom: "1rem",
-  };
-
-  const tableStyle: React.CSSProperties = {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: "0.8rem",
-  };
-
-  const thStyle: React.CSSProperties = {
-    textAlign: "left",
-    padding: "0.5rem 0.75rem",
-    color: onSurfaceVariant,
-    fontWeight: 600,
-    fontSize: "0.7rem",
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-    borderBottom: `1px solid ${surfaceHigh}`,
-  };
-
-  const tdStyle: React.CSSProperties = {
-    padding: "0.6rem 0.75rem",
-    borderBottom: `1px solid ${surfaceHigh}`,
-    color: onSurface,
-    verticalAlign: "middle",
-  };
-
   return (
-    <div style={pageStyle}>
-      {/* ── Page heading ── */}
-      <div>
-        <h1
-          style={{
-            fontSize: "1.25rem",
-            fontWeight: 700,
-            color: onSurface,
-            margin: 0,
-          }}
-        >
-          Dashboard
-        </h1>
-        <p
-          style={{
-            fontSize: "0.8rem",
-            color: onSurfaceVariant,
-            margin: "0.25rem 0 0",
-          }}
-        >
-          System overview — live mock mode
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Observability"
+        title="Backend Core Dashboard"
+        description="High-density operational overview for the scheduler, worker activity, DLQ inspection, and live mock telemetry."
+        badges={
+          <>
+            <MockBadge label="Dummy Data" />
+            <MockBadge
+              label={connected ? "Frontend SSE Mock" : "SSE Reconnecting"}
+              tone={connected ? "info" : "danger"}
+            />
+          </>
+        }
+      />
 
-      {/* ── Stat cards ── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "1rem",
-        }}
-      >
-        <StatCard label="Total Jobs" value={1284} /> {/* DUMMY DATA */}
-        <StatCard label="Processing" value={47} accentColor={primary} />{" "}
-        {/* DUMMY DATA */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Total Jobs"
+          value="1,284,092"
+          badge={<MockBadge label="Mock Metrics" />}
+        >
+          <div className="flex h-6 items-end gap-[2px]">
+            <div className="w-1 bg-primary/80" style={{ height: "35%" }}></div>
+            <div className="w-1 bg-primary/80" style={{ height: "55%" }}></div>
+            <div className="w-1 bg-primary/80" style={{ height: "85%" }}></div>
+            <div className="w-1 bg-primary/80" style={{ height: "65%" }}></div>
+            <div className="w-1 bg-primary/80" style={{ height: "95%" }}></div>
+          </div>
+        </StatCard>
+        <StatCard
+          label="Processing"
+          value="429"
+          accentColor={primary}
+          icon="refresh"
+          badge={<MockBadge label="Live Mock" tone="info" />}
+        />
         <StatCard
           label="Completed (24h)"
-          value={312}
+          value="84,103"
           accentColor={secondary}
-        />{" "}
-        {/* DUMMY DATA */}
-        <StatCard label="Failed / DLQ" value={9} accentColor={error} />{" "}
-        {/* DUMMY DATA */}
+          icon="done_all"
+        />
+        <StatCard
+          label="Failed / DLQ"
+          value="12"
+          accentColor={error}
+          icon="warning"
+        />
       </div>
 
-      {/* ── Active Jobs Stream ── */}
-      <div style={sectionStyle}>
-        <p style={sectionTitleStyle}>Active Jobs Stream</p>
-
-        {/* Filter tabs */}
-        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-          {TABS.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => {
-                setFilterError(false);
-                try {
-                  setActiveTab(tab.value);
-                } catch {
-                  setFilterError(true);
-                }
-              }}
-              style={{
-                padding: "0.35rem 0.85rem",
-                borderRadius: "0.375rem",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "0.72rem",
-                fontWeight: 600,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                fontFamily: "inherit",
-                backgroundColor:
-                  activeTab === tab.value ? primary : surfaceHigh,
-                color: activeTab === tab.value ? "#ffffff" : onSurfaceVariant,
-                transition: "background-color 0.15s, color 0.15s",
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Filter error warning */}
-        {filterError && (
-          <div
-            style={{
-              backgroundColor: "#7f1d1d",
-              border: `1px solid ${error}`,
-              borderRadius: "0.375rem",
-              padding: "0.5rem 0.75rem",
-              color: "#fca5a5",
-              fontSize: "0.78rem",
-              marginBottom: "0.75rem",
-            }}
-          >
-            ⚠ Filter error – showing all jobs
-          </div>
-        )}
-
-        {/* Jobs table */}
-        {filteredJobs.length === 0 ? (
-          <div
-            style={{
-              color: onSurfaceVariant,
-              fontSize: "0.85rem",
-              padding: "1rem 0",
-            }}
-          >
-            No jobs found for this type
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Job ID</th>
-                  <th style={thStyle}>Type</th>
-                  <th style={thStyle}>Priority</th>
-                  <th style={thStyle}>Runtime</th>
-                  <th style={thStyle}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredJobs.map((job) => (
-                  <tr key={job.id} style={{ backgroundColor: "transparent" }}>
-                    <td
-                      style={{
-                        ...tdStyle,
-                        fontFamily: "inherit",
-                        color: primary,
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
+        <Panel className="xl:col-span-8">
+          <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                    Active Jobs Stream
+                  </h2>
+                  <MockBadge label="Dummy Data" />
+                </div>
+                <p className="font-body text-sm text-on-surface-variant">
+                  Current queue snapshot styled to match the Stitch operational
+                  dashboard.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {TABS.map((tab) => {
+                  const active = activeTab === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => {
+                        setFilterError(false);
+                        try {
+                          setActiveTab(tab.value);
+                        } catch {
+                          setFilterError(true);
+                        }
                       }}
+                      className={[
+                        "rounded border px-3 py-1.5 font-body text-[11px] font-semibold uppercase tracking-technical transition",
+                        active
+                          ? "border-primary bg-primary text-on-primary"
+                          : "border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-outline hover:text-on-surface",
+                      ].join(" ")}
                     >
-                      {job.id}
-                    </td>
-                    <td style={tdStyle}>{job.type}</td>
-                    <td style={tdStyle}>
-                      <PriorityBadge priority={job.priority} />
-                    </td>
-                    <td style={{ ...tdStyle, color: onSurfaceVariant }}>
-                      {formatRuntime(job.started_at, job.completed_at)}
-                    </td>
-                    <td style={tdStyle}>
-                      <StatusBadge status={job.status} />
-                    </td>
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-4 py-4 sm:px-5">
+            {filterError ? (
+              <div className="mb-4 rounded border border-error bg-error/10 px-3 py-2 text-sm text-on-error-container">
+                Filter error — showing all jobs.
+              </div>
+            ) : null}
+
+            <div className="overflow-x-auto">
+              <table className="app-table min-w-full border-collapse text-left">
+                <thead>
+                  <tr className="bg-surface-container-low">
+                    <th className="px-4 py-3">Job ID</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Priority</th>
+                    <th className="px-4 py-3 text-right">Runtime</th>
+                    <th className="px-4 py-3 text-right">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-outline-variant">
+                  {filteredJobs.map((job) => (
+                    <tr
+                      key={job.id}
+                      className="transition hover:bg-surface-container-highest/20"
+                    >
+                      <td className="px-4 py-3 font-code text-[12px] text-primary">
+                        #{job.id}
+                      </td>
+                      <td className="px-4 py-3 font-body text-sm text-on-surface">
+                        {String(
+                          job.payload.task ?? job.payload.event ?? job.type,
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <PriorityBadge priority={job.priority} />
+                      </td>
+                      <td className="px-4 py-3 text-right font-code text-[12px] text-on-surface-variant">
+                        {formatRuntime(job.started_at, job.completed_at)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <StatusBadge status={job.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
-      </div>
+        </Panel>
 
-      {/* ── Bottom panels: DLQ Insight + Node Health + Live Logs ── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "1.25rem",
-        }}
-      >
-        {/* DLQ Insight */}
-        <div style={sectionStyle}>
-          <p style={sectionTitleStyle}>DLQ Insight</p>
-
-          {/* JSON payload */}
-          <p
-            style={{
-              fontSize: "0.7rem",
-              color: onSurfaceVariant,
-              margin: "0 0 0.35rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Failed Job Payload
-          </p>
-          <pre
-            style={{
-              backgroundColor: "#010f1f",
-              color: "#7dd3fc",
-              borderRadius: "0.375rem",
-              padding: "0.75rem",
-              fontSize: "0.72rem",
-              overflowX: "auto",
-              margin: "0 0 1rem",
-              lineHeight: 1.6,
-            }}
-          >
-            {JSON.stringify(DLQ_PAYLOAD, null, 2) /* DUMMY DATA */}
-          </pre>
-
-          {/* Stack trace */}
-          <p
-            style={{
-              fontSize: "0.7rem",
-              color: onSurfaceVariant,
-              margin: "0 0 0.35rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Stack Trace Excerpt
-          </p>
-          <pre
-            style={{
-              backgroundColor: "#1a0000",
-              color: "#fca5a5",
-              borderRadius: "0.375rem",
-              padding: "0.75rem",
-              fontSize: "0.68rem",
-              overflowX: "auto",
-              margin: "0 0 1rem",
-              lineHeight: 1.6,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {DLQ_STACK_TRACE /* DUMMY DATA */}
-          </pre>
-
-          {/* Action buttons */}
-          <div style={{ display: "flex", gap: "0.75rem" }}>
-            <button
-              onClick={() => {
-                /* no-op */
-              }}
-              style={{
-                padding: "0.45rem 1rem",
-                borderRadius: "0.375rem",
-                border: `1px solid ${error}`,
-                backgroundColor: "transparent",
-                color: error,
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                letterSpacing: "0.05em",
-              }}
-            >
-              PURGE
-            </button>
-            <button
-              onClick={() => {
-                /* no-op */
-              }}
-              style={{
-                padding: "0.45rem 1rem",
-                borderRadius: "0.375rem",
-                border: `1px solid ${primary}`,
-                backgroundColor: "transparent",
-                color: primary,
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                letterSpacing: "0.05em",
-              }}
-            >
-              RETRY JOB
-            </button>
-          </div>
-        </div>
-
-        {/* Right column: Node Health + Live Logs stacked */}
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
-        >
-          {/* Node Health */}
-          <div style={sectionStyle}>
-            <p style={sectionTitleStyle}>Node Health</p>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.75rem",
-              }}
-            >
-              {/* CPU */}
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "0.3rem",
-                  }}
-                >
-                  <span
-                    style={{ fontSize: "0.75rem", color: onSurfaceVariant }}
-                  >
-                    CPU Usage
+        <div className="space-y-3 xl:col-span-4">
+          <Panel>
+            <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-error">
+                    error_outline
                   </span>
-                  <span
-                    style={{
-                      fontSize: "0.75rem",
-                      fontWeight: 700,
-                      color: secondary,
-                    }}
-                  >
-                    42.1% {/* DUMMY DATA */}
-                  </span>
+                  <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                    DLQ Insight
+                  </h2>
                 </div>
-                <div
-                  style={{
-                    backgroundColor: surfaceHigh,
-                    borderRadius: "9999px",
-                    height: "6px",
-                  }}
+                <MockBadge label="Dummy Data" tone="danger" />
+              </div>
+            </div>
+            <div className="space-y-4 px-4 py-4 sm:px-5">
+              <div>
+                <p className="mb-2 font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                  Payload Investigation
+                </p>
+                <pre className="app-code-block overflow-x-auto p-4 text-[12px] leading-6 text-primary">
+                  {JSON.stringify(DLQ_PAYLOAD, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <p className="mb-2 font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                  Error Trace
+                </p>
+                <pre className="rounded-lg border border-error/30 bg-error-container/20 p-4 font-code text-[11px] leading-5 text-on-error-container whitespace-pre-wrap">
+                  {DLQ_STACK_TRACE}
+                </pre>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button icon="delete" variant="danger" className="w-full">
+                  Purge
+                </Button>
+                <Button
+                  icon="history_toggle_off"
+                  variant="secondary"
+                  className="w-full border-on-surface bg-on-surface text-surface hover:bg-white/90"
                 >
-                  <div
-                    style={{
-                      width: "42.1%" /* DUMMY DATA */,
-                      height: "100%",
-                      backgroundColor: secondary,
-                      borderRadius: "9999px",
-                    }}
-                  />
+                  Retry Job
+                </Button>
+              </div>
+            </div>
+          </Panel>
+
+          <Panel>
+            <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 sm:px-5">
+              <div className="space-y-1">
+                <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                  Node Health
+                </p>
+                <div className="flex items-center gap-2 text-[11px] text-on-secondary-container">
+                  <span className="h-2 w-2 rounded-full bg-secondary"></span>
+                  NOMINAL
                 </div>
               </div>
-              {/* Memory */}
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "0.3rem",
-                  }}
-                >
-                  <span
-                    style={{ fontSize: "0.75rem", color: onSurfaceVariant }}
-                  >
-                    Memory
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "0.75rem",
-                      fontWeight: 700,
-                      color: primary,
-                    }}
-                  >
-                    18.9GB / 32GB {/* DUMMY DATA */}
-                  </span>
+              <MockBadge label="Dummy Data" />
+            </div>
+            <div className="space-y-4 px-4 py-4 sm:px-5 font-code text-[12px]">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-on-surface-variant">CPU Usage</span>
+                  <span className="text-primary">42.1%</span>
                 </div>
-                <div
-                  style={{
-                    backgroundColor: surfaceHigh,
-                    borderRadius: "9999px",
-                    height: "6px",
-                  }}
-                >
+                <div className="h-1.5 rounded-full bg-surface-container-lowest">
                   <div
-                    style={{
-                      width: `${(18.9 / 32) * 100}%` /* DUMMY DATA */,
-                      height: "100%",
-                      backgroundColor: primary,
-                      borderRadius: "9999px",
-                    }}
-                  />
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: "42%" }}
+                  ></div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-on-surface-variant">Memory Load</span>
+                  <span className="text-secondary">18.9GB / 32GB</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-surface-container-lowest">
+                  <div
+                    className="h-full rounded-full bg-secondary"
+                    style={{ width: "68%" }}
+                  ></div>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Live System Logs */}
-          <div style={{ ...sectionStyle, flex: 1 }}>
-            <p style={sectionTitleStyle}>Live System Logs</p>
-            <div
-              style={{
-                backgroundColor: "#010f1f",
-                borderRadius: "0.375rem",
-                padding: "0.75rem",
-                height: "220px",
-                overflowY: "auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.2rem",
-              }}
-            >
-              {logs.map((line, i) => {
-                const levelColor = line.includes("] ERROR")
-                  ? error
-                  : line.includes("] WARN")
-                    ? "#f59e0b"
-                    : line.includes("] DEBUG")
-                      ? "#94a3b8"
-                      : primary;
-                return (
-                  <span
-                    key={i}
-                    style={{
-                      fontFamily:
-                        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                      fontSize: "0.68rem",
-                      color: levelColor,
-                      lineHeight: 1.6,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {line}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
+          </Panel>
         </div>
       </div>
+
+      <Panel>
+        <div className="flex flex-col gap-3 border-b border-outline-variant px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-on-surface-variant">
+              terminal
+            </span>
+            <h2 className="font-headline text-[18px] font-semibold text-on-surface">
+              Live System Logs
+            </h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <MockBadge
+              label={connected ? "Frontend SSE Mock" : "SSE Reconnecting"}
+              tone={connected ? "info" : "danger"}
+            />
+            <MockBadge label="Dummy Logs" />
+          </div>
+        </div>
+        <div className="app-code-block m-4 h-48 overflow-y-auto p-4 sm:m-5">
+          <div className="space-y-1 font-code text-[11px] leading-5">
+            {logs.map((line, index) => {
+              const levelClassName = line.includes(" ERROR")
+                ? "text-error"
+                : line.includes(" WARN")
+                  ? "text-amber-300"
+                  : line.includes(" DEBUG")
+                    ? "text-on-surface-variant"
+                    : "text-primary";
+
+              return (
+                <p key={`${line}-${index}`} className={levelClassName}>
+                  {line}
+                </p>
+              );
+            })}
+          </div>
+        </div>
+      </Panel>
     </div>
   );
 }

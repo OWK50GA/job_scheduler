@@ -1,75 +1,86 @@
-const TopBar = () => {
+import { useLocation } from "react-router-dom";
+
+const routeMeta: { match: (pathname: string) => boolean; title: string }[] = [
+  { match: (pathname) => pathname === "/", title: "InfraGuard" },
+  { match: (pathname) => pathname === "/jobs", title: "InfraStream" },
+  { match: (pathname) => pathname === "/jobs/new", title: "InfraStream" },
+  {
+    match: (pathname) => pathname.startsWith("/jobs/dlq"),
+    title: "InfraStream",
+  },
+  { match: (pathname) => pathname === "/settings", title: "InfraStream" },
+];
+
+const searchPlaceholders: {
+  match: (pathname: string) => boolean;
+  value: string;
+}[] = [
+  {
+    match: (pathname) => pathname.startsWith("/jobs/dlq"),
+    value: "Search failed jobs...",
+  },
+  {
+    match: (pathname) => pathname === "/jobs",
+    value: "Search jobs, IDs, or workers...",
+  },
+  {
+    match: (pathname) => pathname === "/",
+    value: "Search systems...",
+  },
+];
+
+export default function TopBar() {
+  const location = useLocation();
+
+  const title =
+    routeMeta.find((entry) => entry.match(location.pathname))?.title ??
+    "InfraStream";
+
+  const searchPlaceholder =
+    searchPlaceholders.find((entry) => entry.match(location.pathname))?.value ??
+    "Search systems...";
+
   return (
-    <header
-      style={{
-        position: "relative",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        gap: "16px",
-        height: "60px",
-        padding: "0 24px",
-        backgroundColor: "#0f172a",
-        borderBottom: "1px solid #1e293b",
-      }}
-    >
-      {/* Search input */}
-      {/* <input
-        type="text"
-        placeholder="Search…"
-        style={{
-          backgroundColor: '#0f172a',
-          border: '1px solid #475569',
-          borderRadius: '6px',
-          color: '#f8fafc',
-          padding: '6px 12px',
-          fontSize: '14px',
-          outline: 'none',
-          width: '220px',
-        }}
-      /> */}
+    <header className="fixed left-[240px] right-0 top-0 z-40 flex h-12 items-center justify-between border-b border-outline-variant bg-surface px-6">
+      <div className="flex items-center gap-6">
+        <span className="font-headline text-[24px] font-semibold leading-none text-primary">
+          {title}
+        </span>
+        <label className="relative hidden lg:block">
+          <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">
+            search
+          </span>
+          <input
+            type="text"
+            placeholder={searchPlaceholder}
+            className="h-8 w-72 rounded border border-outline-variant bg-surface-container-lowest pl-10 pr-4 font-body text-sm text-on-surface outline-none transition focus:border-primary"
+          />
+        </label>
+      </div>
 
-      {/* Notifications icon button */}
-      {/* <button
-        style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: '#f8fafc',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '4px',
-          borderRadius: '50%',
-        }}
-      >
-        <span className="material-icons">notifications</span>
-      </button> */}
-
-      {/* Avatar */}
-      {/* <div
-        style={{
-          width: '36px',
-          height: '36px',
-          borderRadius: '50%',
-          backgroundColor: '#0ea5e9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#ffffff',
-          fontSize: '13px',
-          fontWeight: 600,
-          flexShrink: 0,
-        }}
-      >
-        AD
-      </div> */}
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          className="rounded p-1.5 text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
+          aria-label="Notifications"
+        >
+          <span className="material-symbols-outlined">notifications</span>
+        </button>
+        <button
+          type="button"
+          className="rounded p-1.5 text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
+          aria-label="Help"
+        >
+          <span className="material-symbols-outlined">help_outline</span>
+        </button>
+        <div className="h-4 w-px bg-outline-variant"></div>
+        <button
+          type="button"
+          className="font-body text-xs font-medium text-on-surface-variant transition hover:text-on-surface"
+        >
+          Sign Out
+        </button>
+      </div>
     </header>
   );
-};
-
-export default TopBar;
+}

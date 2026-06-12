@@ -1,136 +1,154 @@
 import { NavLink, useLocation } from "react-router-dom";
+import { Button } from "../shared/Button";
 
-type NavItem =
-  | { label: string; path: string; icon: string; navigable: true }
-  | { label: string; path?: undefined; icon: string; navigable: false };
+type NavItem = {
+  label: string;
+  icon: string;
+  path?: string;
+  match?: (pathname: string) => boolean;
+  disabled?: boolean;
+};
 
 const navItems: NavItem[] = [
-  { label: "Dashboard", path: "/", icon: "dashboard", navigable: true },
-  { label: "Jobs", path: "/jobs", icon: "work", navigable: true },
-  { label: "DLQ", path: "/jobs/dlq", icon: "report_problem", navigable: true },
-  { label: "Metrics", icon: "bar_chart", navigable: false },
-  { label: "Infrastructure", icon: "dns", navigable: false },
-  { label: "Settings", path: "/settings", icon: "settings", navigable: true },
+  {
+    label: "Dashboard",
+    path: "/",
+    icon: "dashboard",
+    match: (pathname) => pathname === "/",
+  },
+  {
+    label: "Jobs",
+    path: "/jobs",
+    icon: "terminal",
+    match: (pathname) => pathname === "/jobs" || pathname === "/jobs/new",
+  },
+  {
+    label: "DLQ",
+    path: "/jobs/dlq",
+    icon: "data_alert",
+    match: (pathname) => pathname.startsWith("/jobs/dlq"),
+  },
+  { label: "Metrics", icon: "monitoring", disabled: true },
+  { label: "Infrastructure", icon: "dns", disabled: true },
+  {
+    label: "Settings",
+    path: "/settings",
+    icon: "settings",
+    match: (pathname) => pathname === "/settings",
+  },
 ];
 
-const ACTIVE_STYLE: React.CSSProperties = {
-  borderLeft: "4px solid #0ea5e9",
-  backgroundColor: "#0c4a6e",
-};
+const footerLinks = [
+  { label: "Docs", icon: "description" },
+  { label: "Status", icon: "check_circle" },
+];
 
-const INACTIVE_STYLE: React.CSSProperties = {
-  borderLeft: "4px solid transparent",
-  backgroundColor: "transparent",
-};
+function itemClassName(active: boolean, disabled = false) {
+  const base =
+    "group flex items-center gap-3 px-4 py-2.5 font-body text-sm transition duration-150";
 
-const ITEM_BASE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "12px",
-  padding: "10px 16px",
-  width: "100%",
-  textDecoration: "none",
-  fontSize: "14px",
-  fontWeight: 500,
-  cursor: "pointer",
-  border: "none",
-  textAlign: "left",
-  transition: "background-color 0.15s ease",
-};
+  if (disabled) {
+    return `${base} cursor-not-allowed text-on-surface-variant/55`;
+  }
+
+  if (active) {
+    return `${base} border-r-2 border-primary bg-primary-container text-on-surface`;
+  }
+
+  return `${base} text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface`;
+}
 
 export default function Sidebar() {
   const location = useLocation();
 
   return (
-    <nav
-      aria-label="Main navigation"
-      style={{
-        width: "240px",
-        minWidth: "240px",
-        backgroundColor: "#0f172a",
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        position: "fixed",
-        top: 0,
-        left: 0,
-        overflowY: "auto",
-      }}
-    >
-      {/* Logo / App name */}
-      <div
-        style={{
-          padding: "24px 20px 20px",
-          fontSize: "18px",
-          fontWeight: 700,
-          color: "#0ea5e9",
-          letterSpacing: "0.01em",
-          userSelect: "none",
-        }}
-      >
-        Job Scheduler
+    <aside className="fixed left-0 top-0 z-50 flex h-screen w-[240px] flex-col border-r border-outline-variant bg-surface px-1 py-1">
+      <div className="mb-2 px-5 py-6">
+        <h1 className="font-headline text-[20px] font-semibold uppercase tracking-[0.12em] text-on-surface">
+          Backend Core
+        </h1>
+        <p className="mt-1 font-code text-[11px] text-on-surface-variant/70">
+          v4.2.0-stable
+        </p>
       </div>
 
-      {/* Nav items */}
-      <ul
-        role="list"
-        style={{ listStyle: "none", margin: 0, padding: 0, flex: 1 }}
-      >
+      <nav className="flex-1 space-y-1 px-1" aria-label="Main navigation">
         {navItems.map((item) => {
-          if (item.navigable) {
-            const isActive = location.pathname === item.path;
+          const active = item.match?.(location.pathname) ?? false;
+
+          if (!item.path || item.disabled) {
             return (
-              <li key={item.label}>
-                <NavLink
-                  to={item.path}
-                  end
-                  style={({ isActive: navActive }) => ({
-                    ...ITEM_BASE,
-                    ...(navActive ? ACTIVE_STYLE : INACTIVE_STYLE),
-                    color: navActive ? "#f8fafc" : "#94a3b8",
-                  })}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  <span
-                    className="material-icons"
-                    aria-hidden="true"
-                    style={{ fontSize: "20px" }}
-                  >
-                    {item.icon}
-                  </span>
-                  {item.label}
-                </NavLink>
-              </li>
+              <button
+                key={item.label}
+                type="button"
+                disabled
+                className={itemClassName(false, true)}
+                aria-disabled="true"
+              >
+                <span className="material-symbols-outlined text-[20px]">
+                  {item.icon}
+                </span>
+                <span>{item.label}</span>
+              </button>
             );
           }
 
-          // No-op item
           return (
-            <li key={item.label}>
-              <button
-                type="button"
-                disabled
-                style={{
-                  ...ITEM_BASE,
-                  ...INACTIVE_STYLE,
-                  color: "#94a3b8",
-                  opacity: 0.6,
-                }}
-                aria-disabled="true"
-              >
-                <span
-                  className="material-icons"
-                  aria-hidden="true"
-                  style={{ fontSize: "20px" }}
-                >
-                  {item.icon}
-                </span>
-                {item.label}
-              </button>
-            </li>
+            <NavLink
+              key={item.label}
+              to={item.path}
+              end={item.path === "/"}
+              className={() => itemClassName(active)}
+            >
+              <span className="material-symbols-outlined text-[20px]">
+                {item.icon}
+              </span>
+              <span>{item.label}</span>
+            </NavLink>
           );
         })}
-      </ul>
-    </nav>
+      </nav>
+
+      <div className="mt-auto space-y-4 px-2 pb-5">
+        <Button
+          icon="rocket_launch"
+          variant="secondary"
+          className="w-full border-on-surface bg-on-surface text-surface hover:bg-white/90"
+        >
+          Deploy New Node
+        </Button>
+
+        <div className="space-y-1">
+          {footerLinks.map((link) => (
+            <button
+              key={link.label}
+              type="button"
+              className="flex w-full items-center gap-3 px-4 py-2 font-body text-xs text-on-surface-variant transition hover:text-on-surface"
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {link.icon}
+              </span>
+              <span>{link.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3 border-t border-outline-variant px-4 pt-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-surface-container-highest text-on-surface">
+            <span className="material-symbols-outlined text-[18px]">
+              person
+            </span>
+          </div>
+          <div className="flex flex-col">
+            <span className="font-body text-sm font-semibold text-on-surface">
+              Admin
+            </span>
+            <span className="font-body text-[10px] text-on-surface-variant">
+              System Admin
+            </span>
+          </div>
+        </div>
+      </div>
+    </aside>
   );
 }

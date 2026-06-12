@@ -52,14 +52,18 @@ function buildMockEvent(): SSEEvent {
   };
 }
 
-export function useSSE(options: { mockMode: boolean; intervalMs?: number }): {
+export function useSSE(options: {
+  mockMode: boolean;
+  intervalMs?: number;
+  onEvent?: (event: SSEEvent) => void;
+}): {
   data: SSEEvent | null;
   connected: boolean;
 } {
   const intervalMs = clampInterval(options.intervalMs ?? INTERVAL_DEFAULT);
 
   const [data, setData] = useState<SSEEvent | null>(null);
-  const [connected, setConnected] = useState(false);
+  const [serverConnected, setServerConnected] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,10 +71,10 @@ export function useSSE(options: { mockMode: boolean; intervalMs?: number }): {
 
   useEffect(() => {
     if (options.mockMode) {
-      setConnected(true);
-
       intervalRef.current = setInterval(() => {
-        setData(buildMockEvent());
+        const nextEvent = buildMockEvent();
+        setData(nextEvent);
+        options.onEvent?.(nextEvent);
       }, intervalMs);
     } else {
       function connect() {
@@ -78,20 +82,21 @@ export function useSSE(options: { mockMode: boolean; intervalMs?: number }): {
         eventSourceRef.current = es;
 
         es.onopen = () => {
-          setConnected(true);
+          setServerConnected(true);
         };
 
         es.onmessage = (event: MessageEvent) => {
           try {
             const parsed = JSON.parse(event.data as string) as SSEEvent;
             setData(parsed);
+            options.onEvent?.(parsed);
           } catch {
             // ignore malformed messages
           }
         };
 
         es.onerror = () => {
-          setConnected(false);
+          setServerConnected(false);
           es.close();
           eventSourceRef.current = null;
 
@@ -118,7 +123,7 @@ export function useSSE(options: { mockMode: boolean; intervalMs?: number }): {
         eventSourceRef.current = null;
       }
     };
-  }, [options.mockMode, intervalMs]);
+  }, [options.mockMode, intervalMs, options.onEvent]);
 
-  return { data, connected };
+  return { data, connected: options.mockMode || serverConnected };
 }

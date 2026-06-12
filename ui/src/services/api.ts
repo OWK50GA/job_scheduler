@@ -204,8 +204,9 @@ async function handleResponse<T>(res: Response): Promise<T> {
 // ---------------------------------------------------------------------------
 
 export async function listJobs(
-  _params?: Partial<JobQueryOptions>,
+  params?: Partial<JobQueryOptions>,
 ): Promise<PaginatedResponse<Job>> {
+  void params;
   // DUMMY DATA
   return {
     data: ALL_DUMMY_JOBS,
