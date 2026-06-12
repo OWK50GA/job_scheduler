@@ -6,7 +6,10 @@ import { Panel } from "../components/shared/Panel";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { StatCard } from "../components/shared/StatCard";
 import { StatusBadge } from "../components/shared/StatusBadge";
-import { useSchedulerEvent, useSSEConnected } from "../context/useSchedulerEvent";
+import {
+  useSchedulerEvent,
+  useSSEConnected,
+} from "../context/useSchedulerEvent";
 import { getJobStats, listDLQJobs, listJobs, retryJob } from "../services/api";
 import type { Job, JobStats } from "../types";
 

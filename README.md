@@ -103,15 +103,15 @@ http://localhost:3001/api-docs.json
 
 All routes are prefixed with `/api/v1`.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/jobs` | Create a new job |
-| `GET` | `/jobs` | List jobs with filters and pagination |
-| `GET` | `/jobs/stats` | Job counts by status (dashboard) |
-| `GET` | `/jobs/dlq` | Dead-letter queue jobs |
-| `GET` | `/jobs/:id` | Get a single job by ID |
-| `POST` | `/jobs/:id/cancel` | Cancel a job |
-| `POST` | `/jobs/:id/retry` | Retry a DLQ job |
+| Method | Path               | Description                           |
+| ------ | ------------------ | ------------------------------------- |
+| `POST` | `/jobs`            | Create a new job                      |
+| `GET`  | `/jobs`            | List jobs with filters and pagination |
+| `GET`  | `/jobs/stats`      | Job counts by status (dashboard)      |
+| `GET`  | `/jobs/dlq`        | Dead-letter queue jobs                |
+| `GET`  | `/jobs/:id`        | Get a single job by ID                |
+| `POST` | `/jobs/:id/cancel` | Cancel a job                          |
+| `POST` | `/jobs/:id/retry`  | Retry a DLQ job                       |
 
 ### Create job — `POST /api/v1/jobs`
 
@@ -170,6 +170,7 @@ pnpm format
 ## Current Status
 
 ### Done
+
 - [x] PostgreSQL schema with indexes (partial index for worker polling, retry index)
 - [x] `DatabaseClient` with `insertJob`, `getJob`, `getAllJobs`, `getJobStats`, `getDLQJobs`
 - [x] REST API — `POST /jobs`, `GET /jobs`, `GET /jobs/:id`, `GET /jobs/dlq`, `GET /jobs/stats` (stub)
@@ -182,6 +183,7 @@ pnpm format
 - [x] pnpm monorepo setup (server + UI workspace)
 
 ### In progress / TODO
+
 - [ ] `GET /jobs/stats` controller implementation
 - [ ] `POST /jobs/:id/cancel` — pending + in-progress cancellation with `cancelling` status
 - [ ] `POST /jobs/:id/retry` — DLQ manual retry

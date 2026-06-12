@@ -9,7 +9,13 @@
  * ./SchedulerEventsContext.ts.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { SchedulerEvent, SSEEventType } from "../types";
 import {
   SchedulerEventsContext,
@@ -29,7 +35,10 @@ export function SchedulerEventsProvider({ children }: { children: ReactNode }) {
   const listenersMapRef = useRef<ListenerMap>(new Map());
 
   const subscribe = useCallback(
-    (type: SSEEventType, listener: (event: SchedulerEvent) => void): (() => void) => {
+    (
+      type: SSEEventType,
+      listener: (event: SchedulerEvent) => void,
+    ): (() => void) => {
       const map = listenersMapRef.current;
       if (!map.has(type)) map.set(type, new Set());
       map.get(type)!.add(listener);

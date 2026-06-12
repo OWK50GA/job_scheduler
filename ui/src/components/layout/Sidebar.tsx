@@ -126,10 +126,8 @@ export default function Sidebar() {
               className="flex w-full items-center gap-3 px-4 py-2 font-body text-xs text-on-surface-variant transition hover:text-on-surface"
             >
               <span className="material-symbols-outlined text-[18px]">
-                <NavLink to={"/api-docs"}>
-                  {link.icon}
-                </NavLink>
-               {/* <a href="/api-docs"></a> */}
+                <NavLink to={"/api-docs"}>{link.icon}</NavLink>
+                {/* <a href="/api-docs"></a> */}
               </span>
               <span>{link.label}</span>
             </button>

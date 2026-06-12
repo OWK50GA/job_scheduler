@@ -352,10 +352,7 @@ export default function JobsLedger() {
                 pageJobs.map((job) => {
                   const busy = actionLoading[job.id] ?? false;
                   return (
-                    <tr
-                      key={job.id}
-                      className="transition hover:bg-slate-600"
-                    >
+                    <tr key={job.id} className="transition hover:bg-slate-600">
                       {/* Job ID */}
                       <td className="px-4 py-3 font-code text-[12px] text-primary">
                         {job.id.slice(0, 8)}…
