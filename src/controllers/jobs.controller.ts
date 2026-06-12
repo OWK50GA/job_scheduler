@@ -298,7 +298,10 @@ export async function purgeJob(
 
     if (!deleted) {
       // Job exists but is not in the DLQ
-      throw new AppError(409, "Job is not in the DLQ — only DLQ jobs can be purged");
+      throw new AppError(
+        409,
+        "Job is not in the DLQ — only DLQ jobs can be purged",
+      );
     }
 
     return res.status(200).json({

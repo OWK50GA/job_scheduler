@@ -448,7 +448,7 @@ export class DatabaseClient {
          SET status        = 'failed',
              last_error    = $2,
              next_retry_at = NULL,
-             attempt_count = ${exhaustRetries ? `max_retries` :`attempt_count + 1`},
+             attempt_count = ${exhaustRetries ? `max_retries` : `attempt_count + 1`},
              updated_at    = NOW()
          WHERE id = $1
          RETURNING *`,

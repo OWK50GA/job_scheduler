@@ -107,9 +107,7 @@ async function seed(pool: Pool, total = 120) {
   for (let i = 1; i <= total; i++) {
     const tmpl = pickTemplate(i);
     // All jobs are immediately due so the worker can process them right away
-    valuePlaceholders.push(
-      `($${p++}, $${p++}::jsonb, $${p++}, NOW(), NULL)`,
-    );
+    valuePlaceholders.push(`($${p++}, $${p++}::jsonb, $${p++}, NOW(), NULL)`);
     values.push(tmpl.type, JSON.stringify(tmpl.payloadFn(i)), tmpl.priority);
   }
 
