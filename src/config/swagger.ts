@@ -11,11 +11,11 @@ const options: Options = {
     },
     servers: [
       {
-        url: `http://localhost:${process.env.PORT ?? 3001}/api/v1`,
+        url: `http://localhost:${process.env.PORT ?? 3002}/api/v1`,
         description: "Development server",
       },
       {
-        url: `https://${process.env.PRODUCTION_HOST ?? "your-domain.com"}/api/v1`,
+        url: `https://${process.env.PRODUCTION_HOST ?? "https://hngtask1wilfrid.mooo.com"}/api/v1`,
         description: "Production server",
       },
     ],

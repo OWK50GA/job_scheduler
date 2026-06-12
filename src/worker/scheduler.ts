@@ -1,4 +1,5 @@
 import { Job } from "../types";
+import type { JobScheduler } from "./scheduler-interface";
 
 /**
  * Aging configuration for starvation prevention.
@@ -32,7 +33,7 @@ const AGING_STEP = 0.5;
  * insert time. This ensures that aging continues to apply correctly: a job
  * inserted 30 minutes ago has a better score now than it did when inserted.
  */
-export class MinHeap {
+export class MinHeap implements JobScheduler {
   private heap: Job[] = [];
   private inHeap: Set<string> = new Set();
 
