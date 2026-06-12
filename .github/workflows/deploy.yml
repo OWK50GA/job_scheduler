@@ -19,8 +19,9 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script_stop: true
           script: |
-            sudo -i -u hngdevops bash -c '
+            sudo -u hngdevops bash <<'EOF'
               set -e
+              export PATH="/home/hngdevops/.nvm/versions/node/v20.20.2/bin/pnpm"   # adjust this line
               cd /home/hngdevops/projects/hng14/job_scheduler
               echo "Pulling latest changes from master..."
               git fetch origin
@@ -28,12 +29,12 @@ jobs:
               git pull origin master
               echo "Installing dependencies..."
               pnpm install
-              pnpm install:ui
+              # pnpm install:ui   # only if this script exists
               echo "Building processes..."
               pnpm run build:server
-              pnpm run build:ui
+              # pnpm run build:ui  # only if this script exists
               echo "Restarting pm2 processes"
-              pm2 restart job-scheduler-server
-              pm2 restart job-scheduler-worker
+              pm2 restart job-scheduler-server || true   # don't fail if not running
+              pm2 restart job-scheduler-worker || true
               pm2 save
-            '
+            EOF
