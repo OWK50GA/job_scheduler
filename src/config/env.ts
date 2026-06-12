@@ -13,6 +13,7 @@ export const envConfig = {
   JOB_SCHEDULER_DB_URL:
     process.env.JOB_SCHEDULER_DB_URL ||
     "postgresql://classifications_user:classifications_password@localhost:5432/job_scheduler_db",
+  REDIS_URL: process.env.REDIS_URL || "redis://localhost:6379",
   DATABASE_SYNC: process.env.DATABASE_SYNC || false,
   DATABASE_LOGGING: process.env.DATABASE_LOGGING || false,
   DATABASE_SSL: process.env.DATABASE_SSL || false,

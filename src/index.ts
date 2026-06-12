@@ -4,10 +4,12 @@ import { config } from "dotenv";
 import pinoHttp from "pino-http";
 import swaggerUi from "swagger-ui-express";
 import { router } from "./routes";
+import { sseRouter } from "./routes/sse.routes";
 import { swaggerSpec } from "./config";
 import { errorHandler } from "./middleware";
 import { logger } from "./logger";
 import { envConfig } from "./config/env";
+import { startSubscriber } from "./events/subscriber";
 
 config();
 
@@ -47,6 +49,10 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/v1", router);
+app.use("/api/v1/events", sseRouter);
+
+// Start Redis subscriber — fans events to all SSE connections
+startSubscriber();
 
 app.use((req: Request, res: Response) => {
   logger.warn(`404 - Route not found: ${req.method} ${req.originalUrl}`);

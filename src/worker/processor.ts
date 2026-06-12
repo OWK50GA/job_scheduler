@@ -1,4 +1,5 @@
 import { DatabaseClient } from "../db";
+import { publish } from "../events/publisher";
 import { Job, JobStatus } from "../types";
 import { sendEmailHandler } from "./handlers";
 import { logJobEvent } from "./logger";
@@ -9,6 +10,27 @@ const HANDLERS: Record<string, JobHandler> = {
 };
 
 const dbClient = new DatabaseClient();
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch updated stats and publish a stats.updated event.
+ * Fire-and-forget — errors are logged by the publisher, never thrown.
+ */
+async function publishStats(): Promise<void> {
+  try {
+    const stats = await dbClient.getJobStats();
+    publish({ type: "stats.updated", payload: { stats } });
+  } catch {
+    // stats fetch failure should not affect job processing
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main processor
+// ---------------------------------------------------------------------------
 
 export async function processJob(job: Job) {
   try {
@@ -22,19 +44,22 @@ export async function processJob(job: Job) {
         meta: { jobType: job.type },
       });
 
-      return await dbClient.markJobDeadLetter(
+      const dead = await dbClient.markJobDeadLetter(
         job.id,
         "No handler registered for job type",
         0,
-        true, // this means we are exhausting retries for this
+        true,
       );
+      publish({ type: "job.failed", payload: { job: dead, error: "No handler registered for job type" } });
+      publish({ type: "job.dlq_entry", payload: { job: dead, error: "No handler registered for job type" } });
+      void publishStats();
+      return;
     }
 
     // Re-fetch to catch cancellations that arrived after claimNextJob
     const fetchedJob = await dbClient.getJob(job.id);
 
     if (!fetchedJob) {
-      // Job disappeared from the DB between claim and fetch — treat as failure
       const { attempt_count: attempts, max_retries } = job;
       if (attempts + 1 >= max_retries) {
         logJobEvent({
@@ -42,11 +67,11 @@ export async function processJob(job: Job) {
           event: "job_failed",
           message: "Job not found on re-fetch — sending to DLQ",
         });
-        return await dbClient.markJobDeadLetter(
-          job.id,
-          "Failed to confirm job status",
-          0,
-        );
+        const dead = await dbClient.markJobDeadLetter(job.id, "Failed to confirm job status", 0);
+        publish({ type: "job.failed", payload: { job: dead, error: "Failed to confirm job status" } });
+        publish({ type: "job.dlq_entry", payload: { job: dead, error: "Failed to confirm job status" } });
+        void publishStats();
+        return;
       } else {
         const nextRetryAt = calculateNextRetryAt(attempts);
         logJobEvent({
@@ -55,12 +80,23 @@ export async function processJob(job: Job) {
           message: "Job not found on re-fetch — scheduling retry",
           meta: { attempt: attempts + 1, max_retries },
         });
-        return await dbClient.markJobRetryable(
+        const retried = await dbClient.markJobRetryable(
           job.id,
           "Failed to confirm job status",
           new Date(nextRetryAt),
           0,
         );
+        publish({
+          type: "job.retry_scheduled",
+          payload: {
+            job: retried,
+            error: "Failed to confirm job status",
+            attempt: attempts + 1,
+            nextRetryAt: new Date(nextRetryAt).toISOString(),
+          },
+        });
+        void publishStats();
+        return;
       }
     }
 
@@ -70,12 +106,15 @@ export async function processJob(job: Job) {
         event: "job_cancelled",
         message: "Job was cancelled before execution — skipping",
       });
-      return await dbClient.cancelJob(job.id);
+      const cancelled = await dbClient.cancelJob(job.id);
+      if (cancelled) {
+        publish({ type: "job.cancelled", payload: { job: cancelled } });
+        void publishStats();
+      }
+      return;
     }
 
-    // DAG dependency gate — re-queue if any dependency has not yet completed.
-    // The job was already claimed (status = processing), so we must reset it
-    // back to pending so the poll loop can pick it up again later.
+    // DAG dependency gate
     const depsMet = await dbClient.checkDependenciesMet(job.id);
     if (!depsMet) {
       logJobEvent({
@@ -83,15 +122,23 @@ export async function processJob(job: Job) {
         event: "retry_attempted",
         message: "Dependencies not yet met - releasing back to pending",
       });
-      // Reset to pending with a short backoff so it is not immediately
-      // re-claimed before its dependencies have a chance to complete.
       const retryAt = new Date(Date.now() + 5_000);
-      return await dbClient.markJobRetryable(
+      const retried = await dbClient.markJobRetryable(
         job.id,
         "Waiting for dependencies",
         retryAt,
         0,
       );
+      publish({
+        type: "job.retry_scheduled",
+        payload: {
+          job: retried,
+          error: "Waiting for dependencies",
+          attempt: job.attempt_count + 1,
+          nextRetryAt: retryAt.toISOString(),
+        },
+      });
+      return;
     }
 
     logJobEvent({
@@ -100,6 +147,7 @@ export async function processJob(job: Job) {
       message: "Job execution started",
       meta: { jobType: job.type, attempt: job.attempt_count + 1 },
     });
+    publish({ type: "job.started", payload: { job: fetchedJob } });
 
     const handlerResult = await handler(job);
 
@@ -118,11 +166,15 @@ export async function processJob(job: Job) {
             durationMs: handlerResult.durationMs,
           },
         });
-        return await dbClient.markJobDeadLetter(
+        const dead = await dbClient.markJobDeadLetter(
           job.id,
           handlerResult.error!,
           handlerResult.durationMs,
         );
+        publish({ type: "job.failed", payload: { job: dead, error: handlerResult.error! } });
+        publish({ type: "job.dlq_entry", payload: { job: dead, error: handlerResult.error! } });
+        void publishStats();
+        return;
       } else {
         const nextRetryAt = calculateNextRetryAt(attempts);
         logJobEvent({
@@ -136,12 +188,23 @@ export async function processJob(job: Job) {
             durationMs: handlerResult.durationMs,
           },
         });
-        return await dbClient.markJobRetryable(
+        const retried = await dbClient.markJobRetryable(
           job.id,
           handlerResult.error!,
           new Date(nextRetryAt),
           handlerResult.durationMs,
         );
+        publish({
+          type: "job.retry_scheduled",
+          payload: {
+            job: retried,
+            error: handlerResult.error!,
+            attempt: attempts + 1,
+            nextRetryAt: new Date(nextRetryAt).toISOString(),
+          },
+        });
+        void publishStats();
+        return;
       }
     } else {
       logJobEvent({
@@ -150,14 +213,17 @@ export async function processJob(job: Job) {
         message: "Job completed successfully",
         meta: { durationMs: handlerResult.durationMs },
       });
-      await dbClient.markJobCompleted(
+      const completed = await dbClient.markJobCompleted(
         job.id,
         handlerResult.result!,
         handlerResult.durationMs,
       );
+      publish({ type: "job.completed", payload: { job: completed } });
+      void publishStats();
 
       if (job.recur_interval !== null) {
-        await dbClient.scheduleNextRecurringRun(job);
+        const nextJob = await dbClient.scheduleNextRecurringRun(job);
+        publish({ type: "job.created", payload: { job: nextJob } });
       }
 
       return;
@@ -173,7 +239,11 @@ export async function processJob(job: Job) {
         message: "Unexpected exception — retries exhausted, moving to DLQ",
         meta: { error: errorMessage },
       });
-      return await dbClient.markJobDeadLetter(job.id, errorMessage, 0);
+      const dead = await dbClient.markJobDeadLetter(job.id, errorMessage, 0);
+      publish({ type: "job.failed", payload: { job: dead, error: errorMessage } });
+      publish({ type: "job.dlq_entry", payload: { job: dead, error: errorMessage } });
+      void publishStats();
+      return;
     } else {
       const nextRetryAt = calculateNextRetryAt(attempts);
       logJobEvent({
@@ -182,12 +252,23 @@ export async function processJob(job: Job) {
         message: "Unexpected exception — scheduling retry",
         meta: { error: errorMessage, attempt: attempts + 1, max_retries },
       });
-      return await dbClient.markJobRetryable(
+      const retried = await dbClient.markJobRetryable(
         job.id,
         errorMessage,
         new Date(nextRetryAt),
         0,
       );
+      publish({
+        type: "job.retry_scheduled",
+        payload: {
+          job: retried,
+          error: errorMessage,
+          attempt: attempts + 1,
+          nextRetryAt: new Date(nextRetryAt).toISOString(),
+        },
+      });
+      void publishStats();
+      return;
     }
   }
 }
