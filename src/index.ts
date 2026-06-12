@@ -45,15 +45,15 @@ app.use("/api/v1", router);
 app.use((req: Request, res: Response) => {
   logger.warn(`404 - Route not found: ${req.method} ${req.originalUrl}`);
 
-    return res.status(404).json({
-      error: "Not Found",
-      message: `Cannot ${req.method} ${req.originalUrl}`,
-      "available-endpoints": {
-        root: "GET /",
-        health: "GET /health",
-        docs: "GET /api-docs",
-      },
-    });
+  return res.status(404).json({
+    error: "Not Found",
+    message: `Cannot ${req.method} ${req.originalUrl}`,
+    "available-endpoints": {
+      root: "GET /",
+      health: "GET /health",
+      docs: "GET /api-docs",
+    },
+  });
 });
 
 app.use(errorHandler);
@@ -62,12 +62,12 @@ app.listen(PORT, () => {
   // logger.info({ port: PORT }, "API server started");
   logger.info([
     "🚀 Server started successfully!",
-        `Environment: ${envConfig.NODE_ENV}`,
-        `Host: ${envConfig.HOST}`,
-        `Port: ${envConfig.PORT}`,
-        `Database: ${envConfig.JOB_SCHEDULER_DB_URL}`,
-        `Started at: ${new Date().toLocaleString()}`,
-        `API Root: http://${envConfig.HOST}:${envConfig.PORT}/`,
-        `API Docs: http://${envConfig.HOST}:${envConfig.PORT}/api-docs`,
-  ])
+    `Environment: ${envConfig.NODE_ENV}`,
+    `Host: ${envConfig.HOST}`,
+    `Port: ${envConfig.PORT}`,
+    `Database: ${envConfig.JOB_SCHEDULER_DB_URL}`,
+    `Started at: ${new Date().toLocaleString()}`,
+    `API Root: http://${envConfig.HOST}:${envConfig.PORT}/`,
+    `API Docs: http://${envConfig.HOST}:${envConfig.PORT}/api-docs`,
+  ]);
 });
