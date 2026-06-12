@@ -3,8 +3,8 @@ module.exports = {
     {
       name: "job-scheduler-api",
       cwd: "/home/ubuntu/job_scheduler",
-      script: "npm",
-      args: "run start:server",
+      script: "node",
+      args: "dist/index.js",
     },
     {
       name: "job-scheduler-worker",
