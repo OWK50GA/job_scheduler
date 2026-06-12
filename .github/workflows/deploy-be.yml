@@ -1,0 +1,54 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: ["master"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy be via ssh
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            cd ~/job_scheduler
+            echo "Pulling latest changes from master..."
+            git fetch origin
+            git checkout master
+            git pull
+            echo "Installing dependencies..."
+            pnpm install
+            echo "Building processes..."
+            pnpm run build:server
+            echo "Restarting pm2 processes"
+            pm2 start ecosystem.config.js
+            pm2 save
+      
+      - name: Deploy ui via ssh
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            cd ~/job_scheduler/ui
+            echo "Pulling latest changes..."
+            git fetch origin
+            git checkout master
+            git pull
+            echo "Installing dependencies..."
+            pnpm install
+            echo "Building frontend..."
+            pnpm run build
+            echo "Copying to web root..."
+            sudo cp -r dist/* /var/www/stage9/
+            echo "Frontend deployed successfully"
