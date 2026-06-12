@@ -50,5 +50,5 @@ jobs:
             echo "Building frontend..."
             pnpm run build
             echo "Copying to web root..."
-            sudo cp -r dist/* /var/www/stage9/
+            sudo cp -r dist/* /var/www/job_scheduler_ui/
             echo "Frontend deployed successfully"
