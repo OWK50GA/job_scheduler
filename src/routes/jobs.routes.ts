@@ -4,9 +4,11 @@ import {
   createJob,
   getAllDLQJobs,
   getAllJobs,
+  getJobAttempts,
   getJobStats,
   getSingleJob,
   manualRetryJob,
+  purgeJob,
 } from "../controllers";
 
 export const router = Router();
@@ -434,3 +436,123 @@ router.post("/jobs/:id/cancel", cancelJob);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/jobs/:id/retry", manualRetryJob);
+
+/**
+ * @swagger
+ * /jobs/{id}/purge:
+ *   delete:
+ *     summary: Purge a DLQ job
+ *     description: >
+ *       Permanently deletes a job that is in the dead-letter queue
+ *       (status=failed AND attempt_count >= max_retries).
+ *       All associated job_attempts and job_logs are CASCADE deleted.
+ *       This is irreversible — use only after investigation is complete.
+ *     tags: [Jobs]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Job purged successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       format: uuid
+ *       404:
+ *         description: Job not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: Job is not in the DLQ
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.delete("/jobs/:id/purge", purgeJob);
+
+/**
+ * @swagger
+ * /jobs/{id}/attempts:
+ *   get:
+ *     summary: Get attempt history for a job
+ *     description: >
+ *       Returns all recorded attempt entries for the given job, ordered by
+ *       attempt number ascending. Each entry includes the attempt number,
+ *       error message (if failed), duration in milliseconds, and timestamp.
+ *     tags: [Jobs]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Attempt history
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       job_id:
+ *                         type: string
+ *                         format: uuid
+ *                       attempt_num:
+ *                         type: integer
+ *                       error:
+ *                         type: string
+ *                         nullable: true
+ *                       duration_ms:
+ *                         type: integer
+ *                         nullable: true
+ *                       attempted_at:
+ *                         type: string
+ *                         format: date-time
+ *       404:
+ *         description: Job not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get("/jobs/:id/attempts", getJobAttempts);
