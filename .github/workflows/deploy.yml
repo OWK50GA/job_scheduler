@@ -19,7 +19,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script_stop: true
           script: |
-            sudo -u hngdevops bash -c '
+            sudo -i -u hngdevops bash -c '
               set -e
               cd /home/hngdevops/projects/hng14/job_scheduler
               echo "Pulling latest changes from master..."
