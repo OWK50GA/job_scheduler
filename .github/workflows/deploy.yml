@@ -1,0 +1,38 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: ["master"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via ssh
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            sudo su - hngdevops
+            set -e
+            cd /home/hngdevops/projects/hng14/job_scheduler
+            echo "Pulling latest changes from master..."
+            git fetch origin
+            git checkout master
+            git pull origin master
+            echo "Installing dependencies..."
+            pnpm install
+            pnpm install:ui
+            echo "Building processes..."
+            pnpm run build:server
+            pnpm run build:ui
+            echo "Restarting pm2 processes"
+            pm2 restart job-scheduler-server
+            pm2 restart job-scheduler-worker
+            pm2 save
