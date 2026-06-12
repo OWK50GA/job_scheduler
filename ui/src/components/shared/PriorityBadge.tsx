@@ -1,15 +1,27 @@
 type Priority = 1 | 2 | 3;
 
-const PRIORITY_LABELS: Record<Priority, string> = {
-  1: "HIGH",
-  2: "MED",
-  3: "LOW",
-};
-
-const PRIORITY_COLORS: Record<Priority, string> = {
-  1: "#ef4444",
-  2: "#f59e0b",
-  3: "#475569",
+const PRIORITY_META: Record<
+  Priority,
+  { label: string; bar: string; text: string; bg: string }
+> = {
+  1: {
+    label: "Critical",
+    bar: "bg-error",
+    text: "text-error",
+    bg: "bg-error/10",
+  },
+  2: {
+    label: "Med",
+    bar: "bg-primary",
+    text: "text-primary",
+    bg: "bg-primary/10",
+  },
+  3: {
+    label: "Low",
+    bar: "bg-outline",
+    text: "text-on-surface-variant",
+    bg: "bg-surface-container-high",
+  },
 };
 
 interface PriorityBadgeProps {
@@ -17,21 +29,14 @@ interface PriorityBadgeProps {
 }
 
 export function PriorityBadge({ priority }: PriorityBadgeProps) {
+  const meta = PRIORITY_META[priority];
+
   return (
     <span
-      style={{
-        backgroundColor: PRIORITY_COLORS[priority],
-        color: "#ffffff",
-        padding: "2px 8px",
-        borderRadius: "9999px",
-        fontSize: "0.7rem",
-        fontWeight: 600,
-        letterSpacing: "0.05em",
-        display: "inline-block",
-        whiteSpace: "nowrap",
-      }}
+      className={`inline-flex items-center gap-2 rounded-sm px-2 py-1 font-code text-[10px] font-semibold uppercase tracking-technical ${meta.bg} ${meta.text}`.trim()}
     >
-      {PRIORITY_LABELS[priority]}
+      <span className={`h-3 w-1 rounded-full ${meta.bar}`}></span>
+      {meta.label}
     </span>
   );
 }

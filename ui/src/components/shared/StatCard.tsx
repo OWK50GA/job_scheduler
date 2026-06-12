@@ -1,9 +1,15 @@
+import type { ReactNode } from "react";
+
 interface StatCardProps {
   label: string;
   value: string | number;
   accentColor?: string;
   delta?: string;
   icon?: string;
+  badge?: ReactNode;
+  valueClassName?: string;
+  children?: ReactNode;
+  className?: string;
 }
 
 export function StatCard({
@@ -12,66 +18,51 @@ export function StatCard({
   accentColor,
   delta,
   icon,
+  badge,
+  valueClassName = "",
+  children,
+  className = "",
 }: StatCardProps) {
   return (
     <div
-      style={{
-        backgroundColor: "#0f172a",
-        borderLeft: accentColor ? `4px solid ${accentColor}` : undefined,
-        borderRadius: "0.5rem",
-        padding: "1rem 1.25rem",
-        display: "flex",
-        flexDirection: "column",
-        gap: "0.25rem",
-      }}
+      className={`relative overflow-hidden rounded-lg border border-outline-variant bg-surface-container p-4 shadow-panel ${className}`.trim()}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-        }}
-      >
-        {icon && (
+      {accentColor ? (
+        <div
+          className="absolute inset-y-0 left-0 w-1"
+          style={{ backgroundColor: accentColor }}
+        />
+      ) : null}
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+              {label}
+            </span>
+            {badge}
+          </div>
+          <div
+            className={`font-headline text-[28px] font-semibold leading-none text-on-surface ${valueClassName}`.trim()}
+            style={accentColor ? { color: accentColor } : undefined}
+          >
+            {value}
+          </div>
+          {delta ? (
+            <span className="font-code text-[11px] text-on-surface-variant">
+              {delta}
+            </span>
+          ) : null}
+        </div>
+        {icon ? (
           <span
-            className="material-icons"
-            style={{ fontSize: "1.25rem", color: accentColor ?? "#94a3b8" }}
+            className="material-symbols-outlined text-2xl text-on-surface-variant"
+            style={accentColor ? { color: accentColor } : undefined}
           >
             {icon}
           </span>
-        )}
-        <span
-          style={{
-            fontSize: "0.75rem",
-            color: "#94a3b8",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-            fontWeight: 500,
-          }}
-        >
-          {label}
-        </span>
+        ) : null}
       </div>
-      <span
-        style={{
-          fontSize: "1.75rem",
-          fontWeight: 700,
-          color: "#f8fafc",
-          lineHeight: 1.2,
-        }}
-      >
-        {value}
-      </span>
-      {delta && (
-        <span
-          style={{
-            fontSize: "0.8rem",
-            color: "#94a3b8",
-          }}
-        >
-          {delta}
-        </span>
-      )}
+      {children ? <div className="mt-4">{children}</div> : null}
     </div>
   );
 }

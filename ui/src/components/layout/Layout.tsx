@@ -1,27 +1,14 @@
+import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
-import { Outlet } from "react-router-dom";
 
 export default function Layout() {
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        backgroundColor: "#051424",
-      }}
-    >
+    <div className="min-h-screen bg-surface text-on-surface">
       <Sidebar />
-      <div
-        style={{
-          flex: 1,
-          marginLeft: "240px",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+      <div className="ml-[240px] min-h-screen">
         <TopBar />
-        <main style={{ paddingTop: "60px", padding: "1.5rem", flex: 1 }}>
+        <main className="app-shell-grid min-h-screen bg-surface px-6 pb-8 pt-[72px]">
           <Outlet />
         </main>
       </div>

@@ -1,17 +1,44 @@
 import { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Button } from "../components/shared/Button";
+import { MockBadge } from "../components/shared/MockBadge";
+import { Panel } from "../components/shared/Panel";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { retryJob } from "../services/api";
 import type { Job } from "../types";
 
-// ─── Dummy Data ───────────────────────────────────────────────────────────────
-
 const DUMMY_DLQ_JOBS: Job[] = [
-  // DUMMY DATA
   {
-    id: "job-001",
-    type: "ASYNC_TASK",
-    payload: { target: "user-service", action: "sync" },
+    id: "job_88a2-99cf-01",
+    type: "ProcessPaymentBatch",
+    payload: {
+      job_id: "job_9921_xbf",
+      context: {
+        user_id: "usr_0a112",
+        session_id: "sess_v881_active",
+        geo: "US/NY",
+        retry_policy: {
+          max_retries: 3,
+          backoff_factor: 2,
+        },
+      },
+      data: {
+        transactions: [
+          {
+            id: "tx_881",
+            amount: 142,
+            currency: "USD",
+            gateway: "stripe_v3",
+            metadata: {
+              reference: "REF-2023-OCT-991",
+              risk_score: 0.02,
+            },
+          },
+        ],
+      },
+      timestamp: "2025-07-10T14:22:01.009Z",
+      checksum: "sha256:8f3c...12a",
+    },
     status: "failed",
     priority: 1,
     attempt_count: 3,
@@ -19,7 +46,8 @@ const DUMMY_DLQ_JOBS: Job[] = [
     next_retry_at: null,
     scheduled_at: "2025-07-10T08:00:00.000Z",
     recur_interval: null,
-    last_error: "ConnectionRefusedError: ECONNREFUSED 127.0.0.1:5432",
+    last_error:
+      "TimeoutException: Upstream payment gateway failed to respond within 5000ms. Connection pool exhausted at source.",
     result: null,
     started_at: "2025-07-10T08:01:00.000Z",
     completed_at: null,
@@ -27,368 +55,57 @@ const DUMMY_DLQ_JOBS: Job[] = [
     created_at: "2025-07-10T08:00:00.000Z",
     updated_at: "2025-07-10T08:04:32.123Z",
   },
-  {
-    id: "job-002",
-    type: "WEBHOOK_EVENT",
-    payload: { url: "https://hooks.example.com/notify", event: "job.failed" },
-    status: "failed",
-    priority: 2,
-    attempt_count: 5,
-    max_retries: 5,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T09:00:00.000Z",
-    recur_interval: null,
-    last_error: "TimeoutError: Request timed out after 30000ms",
-    result: null,
-    started_at: "2025-07-10T09:01:00.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T09:00:00.000Z",
-    updated_at: "2025-07-10T09:30:00.456Z",
-  },
-  {
-    id: "job-003",
-    type: "ASYNC_TASK",
-    payload: { queue: "email", recipient: "ops@example.com" },
-    status: "failed",
-    priority: 1,
-    attempt_count: 3,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T10:00:00.000Z",
-    recur_interval: null,
-    last_error: 'ValidationError: missing required field "to"',
-    result: null,
-    started_at: "2025-07-10T10:01:00.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T10:00:00.000Z",
-    updated_at: "2025-07-10T10:02:11.789Z",
-  },
-  {
-    id: "job-004",
-    type: "SCHEDULED_JOB",
-    payload: { cron: "0 */6 * * *", task: "cleanup" },
-    status: "failed",
-    priority: 3,
-    attempt_count: 2,
-    max_retries: 2,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T06:00:00.000Z",
-    recur_interval: null,
-    last_error: "DatabaseError: deadlock detected",
-    result: null,
-    started_at: "2025-07-10T06:00:05.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T06:00:00.000Z",
-    updated_at: "2025-07-10T06:00:59.001Z",
-  },
-  {
-    id: "job-005",
-    type: "WEBHOOK_EVENT",
-    payload: { url: "https://api.partner.io/webhook", event: "order.created" },
-    status: "failed",
-    priority: 1,
-    attempt_count: 3,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T11:00:00.000Z",
-    recur_interval: null,
-    last_error: "NetworkError: DNS resolution failed",
-    result: null,
-    started_at: "2025-07-10T11:00:01.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T11:00:00.000Z",
-    updated_at: "2025-07-10T11:05:44.321Z",
-  },
-  {
-    id: "job-006",
-    type: "ASYNC_TASK",
-    payload: { service: "billing", action: "charge" },
-    status: "failed",
-    priority: 2,
-    attempt_count: 4,
-    max_retries: 4,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T12:00:00.000Z",
-    recur_interval: null,
-    last_error: "AuthorizationError: invalid API key",
-    result: null,
-    started_at: "2025-07-10T12:00:02.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T12:00:00.000Z",
-    updated_at: "2025-07-10T12:20:00.654Z",
-  },
-  {
-    id: "job-007",
-    type: "SCHEDULED_JOB",
-    payload: { task: "report-generation", format: "pdf" },
-    status: "failed",
-    priority: 1,
-    attempt_count: 3,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T07:00:00.000Z",
-    recur_interval: null,
-    last_error: "OutOfMemoryError: heap allocation failed",
-    result: null,
-    started_at: "2025-07-10T07:00:10.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T07:00:00.000Z",
-    updated_at: "2025-07-10T07:10:22.987Z",
-  },
-  {
-    id: "job-008",
-    type: "ASYNC_TASK",
-    payload: { pipeline: "etl", stage: "transform" },
-    status: "failed",
-    priority: 2,
-    attempt_count: 2,
-    max_retries: 5,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T13:00:00.000Z",
-    recur_interval: null,
-    last_error: "ParseError: unexpected token at position 42",
-    result: null,
-    started_at: "2025-07-10T13:00:03.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T13:00:00.000Z",
-    updated_at: "2025-07-10T13:01:55.210Z",
-  },
-  {
-    id: "job-009",
-    type: "WEBHOOK_EVENT",
-    payload: { url: "https://slack.com/api/post", channel: "#alerts" },
-    status: "failed",
-    priority: 3,
-    attempt_count: 3,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T14:00:00.000Z",
-    recur_interval: null,
-    last_error: "RateLimitError: 429 Too Many Requests",
-    result: null,
-    started_at: "2025-07-10T14:00:01.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T14:00:00.000Z",
-    updated_at: "2025-07-10T14:03:30.543Z",
-  },
-  {
-    id: "job-010",
-    type: "ASYNC_TASK",
-    payload: { component: "notification", event: "password_reset" },
-    status: "failed",
-    priority: 1,
-    attempt_count: 5,
-    max_retries: 5,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T15:00:00.000Z",
-    recur_interval: null,
-    last_error: "ConnectionRefusedError: ECONNREFUSED mail.example.com:587",
-    result: null,
-    started_at: "2025-07-10T15:00:02.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T15:00:00.000Z",
-    updated_at: "2025-07-10T15:45:01.876Z",
-  },
-  {
-    id: "job-011",
-    type: "SCHEDULED_JOB",
-    payload: { task: "cache-invalidation", keys: ["user:*"] },
-    status: "failed",
-    priority: 2,
-    attempt_count: 3,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T16:00:00.000Z",
-    recur_interval: null,
-    last_error: "RedisError: connection lost",
-    result: null,
-    started_at: "2025-07-10T16:00:05.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T16:00:00.000Z",
-    updated_at: "2025-07-10T16:00:33.099Z",
-  },
-  {
-    id: "job-012",
-    type: "ASYNC_TASK",
-    payload: { service: "search", action: "reindex" },
-    status: "failed",
-    priority: 3,
-    attempt_count: 2,
-    max_retries: 2,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T17:00:00.000Z",
-    recur_interval: null,
-    last_error: "ElasticsearchError: index_not_found_exception",
-    result: null,
-    started_at: "2025-07-10T17:00:07.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T17:00:00.000Z",
-    updated_at: "2025-07-10T17:02:14.432Z",
-  },
-];
+]; // DUMMY DATA
 
-const DUMMY_CPU_PERCENTAGE = "67%"; // DUMMY DATA
-const DUMMY_PURGE_COUNTDOWN = "23h 14m remaining"; // DUMMY DATA
+const DUMMY_CPU_PERCENTAGE = "94%"; // DUMMY DATA
+const DUMMY_PURGE_COUNTDOWN = "23h 14m"; // DUMMY DATA
 const DUMMY_REGION = "us-east-1 (Primary)"; // DUMMY DATA
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/** Build dummy retry sequence entries spaced ~2 minutes apart from started_at */
-function buildRetrySequence(
-  job: Job,
-): { attempt: number; error: string; timestamp: string }[] {
-  // DUMMY DATA
+function buildRetrySequence(job: Job) {
   const base = job.started_at ? new Date(job.started_at).getTime() : Date.now();
-  return Array.from({ length: job.attempt_count }, (_, i) => ({
-    attempt: i + 1,
+  return Array.from({ length: job.attempt_count }, (_, index) => ({
+    attempt: index + 1,
     error: job.last_error ?? "Unknown error",
-    timestamp: new Date(base + i * 2 * 60 * 1000).toISOString(),
-  }));
+    timestamp: new Date(base + index * 2 * 60 * 1000).toISOString(),
+  })); // DUMMY DATA
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const pageStyle: React.CSSProperties = {
-  backgroundColor: "#051424",
-  minHeight: "100vh",
-  color: "#f8fafc",
-  fontFamily:
-    "'Geist', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-  padding: "1.5rem",
-};
-
-const cardStyle: React.CSSProperties = {
-  backgroundColor: "#0f172a",
-  borderRadius: "0.5rem",
-  padding: "1.25rem",
-};
-
-const sectionHeadingStyle: React.CSSProperties = {
-  fontSize: "0.7rem",
-  fontWeight: 600,
-  color: "#94a3b8",
-  textTransform: "uppercase",
-  letterSpacing: "0.1em",
-  marginBottom: "0.75rem",
-  margin: "0 0 0.75rem 0",
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: "0.7rem",
-  color: "#94a3b8",
-  textTransform: "uppercase",
-  letterSpacing: "0.08em",
-  marginBottom: "0.2rem",
-};
-
-const valueStyle: React.CSSProperties = {
-  fontSize: "0.85rem",
-  color: "#f8fafc",
-  fontFamily: "monospace",
-};
-
-const btnBase: React.CSSProperties = {
-  padding: "0.45rem 1rem",
-  borderRadius: "0.375rem",
-  fontSize: "0.78rem",
-  fontWeight: 600,
-  cursor: "pointer",
-  letterSpacing: "0.04em",
-  border: "1px solid #475569",
-  backgroundColor: "transparent",
-  color: "#94a3b8",
-};
-
-const btnPrimary: React.CSSProperties = {
-  ...btnBase,
-  border: "1px solid #0ea5e9",
-  color: "#0ea5e9",
-};
-
-const btnError: React.CSSProperties = {
-  ...btnBase,
-  border: "1px solid #ef4444",
-  color: "#ef4444",
-};
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function DLQDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
-  // Find the job from dummy data
-  const job = DUMMY_DLQ_JOBS.find((j) => j.id === id) ?? null;
-
-  // ── Payload code block state ──
+  const job =
+    DUMMY_DLQ_JOBS.find((entry) => entry.id === id) ??
+    DUMMY_DLQ_JOBS[0] ??
+    null;
   const [copyLabel, setCopyLabel] = useState<"Copy" | "Copied!">("Copy");
   const [copyError, setCopyError] = useState(false);
   const [expanded, setExpanded] = useState(true);
-
-  // ── Retry state ──
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
-  // ── Not found guard ──
   if (!job) {
     return (
-      <div style={pageStyle}>
+      <div className="space-y-6">
         <Link
           to="/jobs/dlq"
-          style={{
-            color: "#0ea5e9",
-            fontSize: "0.8rem",
-            textDecoration: "none",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.3rem",
-            marginBottom: "1.5rem",
-          }}
+          className="inline-flex items-center gap-2 font-body text-sm text-primary transition hover:text-on-surface"
         >
-          <span className="material-icons" style={{ fontSize: "1rem" }}>
+          <span className="material-symbols-outlined text-[18px]">
             arrow_back
           </span>
           Back to DLQ List
         </Link>
-        <div
-          style={{
-            ...cardStyle,
-            textAlign: "center",
-            color: "#94a3b8",
-            padding: "3rem",
-          }}
-        >
-          <span
-            className="material-icons"
-            style={{
-              fontSize: "2rem",
-              color: "#475569",
-              display: "block",
-              marginBottom: "0.75rem",
-            }}
-          >
-            search_off
-          </span>
-          Job <code style={{ color: "#f8fafc" }}>{id}</code> not found in the
-          Dead Letter Queue.
-        </div>
+        <Panel className="p-10 text-center">
+          <p className="font-body text-sm text-on-surface-variant">
+            Job not found in the DLQ fixture set.
+          </p>
+        </Panel>
       </div>
     );
   }
 
   const payloadString = JSON.stringify(job.payload, null, 2);
-  const retrySequence = buildRetrySequence(job); // DUMMY DATA
+  const retrySequence = buildRetrySequence(job);
 
   async function handleCopy() {
     try {
@@ -402,626 +119,268 @@ export default function DLQDetail() {
   }
 
   async function handleRetry() {
-    if (!job) return;
     setRetrying(true);
     setRetryError(null);
     try {
       await retryJob(job.id);
       navigate("/jobs/dlq");
-    } catch (err) {
-      setRetryError(err instanceof Error ? err.message : "Retry failed");
+    } catch (error) {
+      setRetryError(error instanceof Error ? error.message : "Retry failed");
     } finally {
       setRetrying(false);
     }
   }
 
   return (
-    <div style={pageStyle}>
-      {/* ── Back link ── */}
-      <Link
-        to="/jobs/dlq"
-        style={{
-          color: "#0ea5e9",
-          fontSize: "0.8rem",
-          textDecoration: "none",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "0.3rem",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <span className="material-icons" style={{ fontSize: "1rem" }}>
-          arrow_back
-        </span>
-        Back to DLQ List
-      </Link>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <Link
+          to="/jobs/dlq"
+          className="inline-flex items-center gap-2 font-body text-sm text-primary transition hover:text-on-surface"
+        >
+          <span className="material-symbols-outlined text-[18px]">
+            arrow_back
+          </span>
+          Back to DLQ List
+        </Link>
+        <MockBadge label="Dummy Data" tone="danger" />
+        <MockBadge label="Live Retry Action" tone="info" />
+      </div>
 
-      {/* ── Critical Failure Banner ── */}
-      <div
-        style={{
-          backgroundColor: "#1a0000",
-          border: "1px solid #ef4444",
-          borderRadius: "0.5rem",
-          padding: "1rem 1.25rem",
-          marginBottom: "1.25rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "1rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <span
-          className="material-icons"
-          style={{ color: "#ef4444", fontSize: "1.4rem", flexShrink: 0 }}
-        >
-          error
-        </span>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "0.5rem 1.5rem",
-            flex: 1,
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <span
-              style={{
-                fontSize: "0.65rem",
-                color: "#94a3b8",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                display: "block",
-              }}
-            >
-              Job ID
-            </span>
-            <span
-              style={{
-                fontFamily: "monospace",
-                fontSize: "0.9rem",
-                color: "#f8fafc",
-                fontWeight: 700,
-              }}
-            >
-              {job.id}
-            </span>
-          </div>
-          <div>
-            <span
-              style={{
-                fontSize: "0.65rem",
-                color: "#94a3b8",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                display: "block",
-              }}
-            >
-              Type
-            </span>
-            <span
-              style={{
-                fontFamily: "monospace",
-                fontSize: "0.9rem",
-                color: "#f8fafc",
-                fontWeight: 700,
-              }}
-            >
+      <div className="rounded-xl border border-error/40 bg-error/10 px-5 py-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-sm border border-error/40 bg-error/10 px-2 py-1 font-body text-[10px] font-semibold uppercase tracking-technical text-error">
+              <span className="material-symbols-outlined text-[16px]">
+                error
+              </span>
+              Critical Failure
+            </div>
+            <h1 className="font-headline text-[28px] font-semibold text-on-surface">
               {job.type}
-            </span>
+            </h1>
+            <p className="font-body text-sm text-on-surface-variant">
+              Failed after {job.attempt_count} retry attempts — inspection view
+              styled after the Stitch DLQ investigation screen.
+            </p>
           </div>
-          <div>
-            <span
-              style={{
-                fontSize: "0.65rem",
-                color: "#94a3b8",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                display: "block",
-              }}
-            >
-              Status
-            </span>
-            <span
-              style={{
-                fontSize: "0.85rem",
-                fontWeight: 700,
-                color: "#ef4444",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
-            >
-              {job.status}
-            </span>
+          <div className="space-y-2 font-code text-[12px] text-on-surface">
+            <p>ID: {job.id}</p>
+            <PriorityBadge priority={job.priority} />
           </div>
         </div>
       </div>
 
-      {/* ── Two-column layout: main content + sidebar ── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 360px",
-          gap: "1.25rem",
-          alignItems: "start",
-        }}
-      >
-        {/* ── Left column ── */}
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
-        >
-          {/* Error Summary Card */}
-          <div style={cardStyle}>
-            <p style={sectionHeadingStyle}>Error Summary</p>
-            <div
-              style={{
-                backgroundColor: "#1a0000",
-                border: "1px solid #7f1d1d",
-                borderRadius: "0.375rem",
-                padding: "0.75rem 1rem",
-                marginBottom: "0.75rem",
-              }}
-            >
-              <p
-                style={{
-                  margin: 0,
-                  fontFamily: "monospace",
-                  fontSize: "0.82rem",
-                  color: "#fca5a5",
-                  wordBreak: "break-word",
-                }}
-              >
-                {job.last_error ?? "No error message recorded"}
-              </p>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
+        <div className="space-y-4">
+          <Panel>
+            <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
+              <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                Error Summary
+              </h2>
             </div>
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
-                Attempts:
-              </span>
-              <span style={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
-                <span style={{ color: "#f59e0b" }}>{job.attempt_count}</span>
-                <span style={{ color: "#475569" }}> / </span>
-                <span style={{ color: "#94a3b8" }}>{job.max_retries}</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Payload JSON Code Block */}
-          <div style={cardStyle}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "0.75rem",
-                flexWrap: "wrap",
-                gap: "0.5rem",
-              }}
-            >
-              <p style={{ ...sectionHeadingStyle, margin: 0 }}>Payload</p>
-              <div
-                style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
-              >
-                {copyError && (
-                  <span style={{ fontSize: "0.72rem", color: "#ef4444" }}>
-                    Copy failed
-                  </span>
-                )}
-                <button
-                  style={{
-                    ...btnBase,
-                    padding: "0.3rem 0.75rem",
-                    fontSize: "0.72rem",
-                  }}
-                  onClick={handleCopy}
-                  aria-label="Copy payload to clipboard"
-                >
-                  <span
-                    className="material-icons"
-                    style={{
-                      fontSize: "0.85rem",
-                      verticalAlign: "middle",
-                      marginRight: "0.3rem",
-                    }}
-                  >
-                    content_copy
-                  </span>
-                  {copyLabel}
-                </button>
-                <button
-                  style={{
-                    ...btnBase,
-                    padding: "0.3rem 0.75rem",
-                    fontSize: "0.72rem",
-                  }}
-                  onClick={() => setExpanded((e) => !e)}
-                  aria-label={expanded ? "Collapse payload" : "Expand payload"}
-                >
-                  <span
-                    className="material-icons"
-                    style={{
-                      fontSize: "0.85rem",
-                      verticalAlign: "middle",
-                      marginRight: "0.3rem",
-                    }}
-                  >
-                    {expanded ? "expand_less" : "expand_more"}
-                  </span>
-                  {expanded ? "Collapse" : "Expand"}
-                </button>
+            <div className="space-y-4 px-4 py-4 sm:px-5">
+              <div className="rounded-lg border border-error/40 bg-error/10 p-4">
+                <p className="font-code text-[13px] leading-6 text-on-error-container">
+                  {job.last_error}
+                </p>
               </div>
-            </div>
-            <div
-              style={{
-                overflow: "hidden",
-                maxHeight: expanded ? "none" : "150px",
-                borderRadius: "0.375rem",
-                position: "relative",
-              }}
-            >
-              <pre
-                style={{
-                  backgroundColor: "#010f1f",
-                  color: "#94a3b8",
-                  padding: "1rem",
-                  margin: 0,
-                  borderRadius: "0.375rem",
-                  fontSize: "0.78rem",
-                  lineHeight: 1.6,
-                  overflowX: "auto",
-                  fontFamily: "monospace",
-                }}
-              >
-                {payloadString}
-              </pre>
-              {!expanded && (
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: "3rem",
-                    background:
-                      "linear-gradient(to bottom, transparent, #010f1f)",
-                    pointerEvents: "none",
-                  }}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Stack Trace */}
-          <div style={cardStyle}>
-            <p style={sectionHeadingStyle}>Stack Trace</p>
-            {job.last_error && job.last_error.trim() !== "" ? (
-              <pre
-                style={{
-                  backgroundColor: "#010f1f",
-                  color: "#fca5a5",
-                  padding: "1rem",
-                  margin: 0,
-                  borderRadius: "0.375rem",
-                  fontSize: "0.78rem",
-                  lineHeight: 1.6,
-                  overflowX: "auto",
-                  fontFamily: "monospace",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                }}
-              >
-                {job.last_error}
-              </pre>
-            ) : (
-              <p
-                style={{
-                  color: "#475569",
-                  fontSize: "0.82rem",
-                  margin: 0,
-                  fontStyle: "italic",
-                }}
-              >
-                No stack trace available
-              </p>
-            )}
-          </div>
-
-          {/* Retry Sequence Timeline */}
-          <div style={cardStyle}>
-            <p style={sectionHeadingStyle}>Retry Sequence {/* DUMMY DATA */}</p>
-            {retrySequence.length === 0 ? (
-              <p style={{ color: "#475569", fontSize: "0.82rem", margin: 0 }}>
-                No retry attempts recorded.
-              </p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                {retrySequence.map((entry, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      gap: "1rem",
-                      position: "relative",
-                    }}
-                  >
-                    {/* Timeline spine */}
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "50%",
-                          backgroundColor: "#1e293b",
-                          border: "2px solid #ef4444",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "0.65rem",
-                          fontWeight: 700,
-                          color: "#ef4444",
-                          flexShrink: 0,
-                          zIndex: 1,
-                        }}
-                      >
-                        {entry.attempt}
-                      </div>
-                      {idx < retrySequence.length - 1 && (
-                        <div
-                          style={{
-                            width: "2px",
-                            flex: 1,
-                            minHeight: "24px",
-                            backgroundColor: "#1e293b",
-                          }}
-                        />
-                      )}
-                    </div>
-                    {/* Timeline content */}
-                    <div
-                      style={{
-                        paddingBottom:
-                          idx < retrySequence.length - 1 ? "1rem" : 0,
-                      }}
-                    >
-                      <p
-                        style={{
-                          margin: "0 0 0.2rem 0",
-                          fontSize: "0.72rem",
-                          color: "#94a3b8",
-                          fontFamily: "monospace",
-                        }}
-                      >
-                        {entry.timestamp}
-                      </p>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: "0.78rem",
-                          color: "#fca5a5",
-                          fontFamily: "monospace",
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {entry.error}
-                      </p>
-                    </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded border border-outline-variant bg-surface-container-low p-3">
+                  <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                    Attempted At
+                  </p>
+                  <p className="mt-2 font-code text-[12px] text-on-surface">
+                    {job.updated_at}
+                  </p>
+                </div>
+                <div className="rounded border border-outline-variant bg-surface-container-low p-3">
+                  <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                    Region
+                  </p>
+                  <p className="mt-2 font-code text-[12px] text-on-surface">
+                    {DUMMY_REGION}
+                  </p>
+                </div>
+                <div className="rounded border border-outline-variant bg-surface-container-low p-3">
+                  <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                    Worker Node
+                  </p>
+                  <p className="mt-2 font-code text-[12px] text-on-surface">
+                    ip-10-22-1-98.ec2
+                  </p>
+                </div>
+                <div className="rounded border border-outline-variant bg-surface-container-low p-3">
+                  <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                    Priority
+                  </p>
+                  <div className="mt-2">
+                    <PriorityBadge priority={job.priority} />
                   </div>
-                ))}
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          </Panel>
+
+          <Panel>
+            <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 sm:px-5">
+              <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                Retry Sequence
+              </h2>
+              <MockBadge label="Dummy Timeline" tone="warning" />
+            </div>
+            <div className="space-y-5 px-4 py-4 sm:px-5">
+              {retrySequence.map((entry) => (
+                <div
+                  key={`${entry.attempt}-${entry.timestamp}`}
+                  className="flex gap-3"
+                >
+                  <div className="flex flex-col items-center">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full border border-error bg-error/10 font-code text-[11px] font-semibold text-error">
+                      {entry.attempt}
+                    </div>
+                    <div className="mt-1 h-full w-px bg-outline-variant"></div>
+                  </div>
+                  <div className="space-y-1 pb-2">
+                    <p className="font-code text-[11px] text-on-surface-variant">
+                      {entry.timestamp}
+                    </p>
+                    <p className="font-body text-sm text-on-surface">
+                      Attempt {entry.attempt}
+                    </p>
+                    <p className="font-code text-[12px] text-on-error-container">
+                      {entry.error}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel>
+            <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 sm:px-5">
+              <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                Node Metrics
+              </h2>
+              <MockBadge label="Dummy Data" />
+            </div>
+            <div className="space-y-3 px-4 py-4 sm:px-5">
+              <div className="flex items-center justify-between font-code text-[12px]">
+                <span className="text-on-surface-variant">CPU Usage</span>
+                <span className="text-error">{DUMMY_CPU_PERCENTAGE}</span>
+              </div>
+              <div className="h-2 rounded-full bg-surface-container-lowest">
+                <div
+                  className="h-full rounded-full bg-error"
+                  style={{ width: DUMMY_CPU_PERCENTAGE }}
+                ></div>
+              </div>
+            </div>
+          </Panel>
         </div>
 
-        {/* ── Right column (sidebar) ── */}
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
-        >
-          {/* Metadata Panel */}
-          <div style={cardStyle}>
-            <p style={sectionHeadingStyle}>Metadata</p>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.9rem",
-              }}
-            >
-              <div>
-                <p style={labelStyle}>Attempted At</p>
-                <p style={valueStyle}>{job.updated_at}</p>
-              </div>
-              <div>
-                <p style={labelStyle}>Region {/* DUMMY DATA */}</p>
-                <p style={valueStyle}>{DUMMY_REGION}</p>
-                {/* DUMMY DATA */}
-              </div>
-              <div>
-                <p style={labelStyle}>Worker Node</p>
-                <p style={{ ...valueStyle, color: "#475569" }}>N/A</p>
-              </div>
-              <div>
-                <p style={labelStyle}>Priority</p>
-                <PriorityBadge priority={job.priority} />
+        <div className="space-y-4">
+          <Panel className="min-h-[420px] overflow-hidden">
+            <div className="flex flex-col gap-3 border-b border-outline-variant px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                Raw Payload Content
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                <Button icon="content_copy" variant="link" onClick={handleCopy}>
+                  {copyLabel}
+                </Button>
+                <Button
+                  icon={expanded ? "unfold_less" : "unfold_more"}
+                  variant="link"
+                  onClick={() => setExpanded((value) => !value)}
+                >
+                  {expanded ? "Collapse" : "Expand"}
+                </Button>
               </div>
             </div>
-          </div>
-
-          {/* Node Metrics CPU Gauge */}
-          <div style={cardStyle}>
-            <p style={sectionHeadingStyle}>Node Metrics {/* DUMMY DATA */}</p>
-            <p style={labelStyle}>CPU Usage</p>
-            {DUMMY_CPU_PERCENTAGE ? (
-              <>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                    marginBottom: "0.5rem",
-                  }}
+            <div className="px-4 py-4 sm:px-5">
+              {copyError ? (
+                <p className="mb-3 font-body text-sm text-error">
+                  Copy failed.
+                </p>
+              ) : null}
+              <div className="app-code-block overflow-auto p-4">
+                <pre
+                  className={`font-code text-[12px] leading-6 text-primary ${expanded ? "max-h-none" : "max-h-[260px] overflow-hidden"}`.trim()}
                 >
-                  <div
-                    style={{
-                      flex: 1,
-                      height: "8px",
-                      backgroundColor: "#1e293b",
-                      borderRadius: "9999px",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: DUMMY_CPU_PERCENTAGE, // DUMMY DATA
-                        backgroundColor: "#0ea5e9",
-                        borderRadius: "9999px",
-                        transition: "width 0.3s ease",
-                      }}
-                    />
-                  </div>
-                  <span
-                    style={{
-                      fontFamily: "monospace",
-                      fontSize: "0.85rem",
-                      color: "#f8fafc",
-                      minWidth: "3rem",
-                      textAlign: "right",
-                    }}
-                  >
-                    {DUMMY_CPU_PERCENTAGE}
-                    {/* DUMMY DATA */}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <p
-                style={{
-                  color: "#475569",
-                  fontSize: "0.82rem",
-                  margin: 0,
-                  fontStyle: "italic",
-                }}
-              >
-                No data
-              </p>
-            )}
-          </div>
-
-          {/* Auto-purge Countdown */}
-          <div style={cardStyle}>
-            <p style={sectionHeadingStyle}>Auto-Purge</p>
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <span
-                className="material-icons"
-                style={{ color: "#f59e0b", fontSize: "1rem" }}
-              >
-                timer
-              </span>
-              <span
-                style={{
-                  fontSize: "0.82rem",
-                  color: "#f8fafc",
-                  fontFamily: "monospace",
-                }}
-              >
-                {DUMMY_PURGE_COUNTDOWN /* DUMMY DATA */ || "No purge scheduled"}
-              </span>
+                  {payloadString}
+                </pre>
+              </div>
             </div>
-          </div>
+          </Panel>
 
-          {/* Action Buttons */}
-          <div style={cardStyle}>
-            <p style={sectionHeadingStyle}>Actions</p>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.6rem",
-              }}
-            >
-              {/* Export Payload — no-op */}
-              <button style={btnBase} aria-label="Export Payload (placeholder)">
-                <span
-                  className="material-icons"
-                  style={{
-                    fontSize: "0.9rem",
-                    verticalAlign: "middle",
-                    marginRight: "0.4rem",
-                  }}
-                >
-                  download
-                </span>
+          <Panel>
+            <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 sm:px-5">
+              <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                Stack Trace
+              </h2>
+              <MockBadge label="Dummy Stack" tone="danger" />
+            </div>
+            <div className="px-4 py-4 sm:px-5">
+              <div className="app-code-block border-error/30 bg-error-container/20 p-4">
+                <pre className="whitespace-pre-wrap font-code text-[12px] leading-6 text-on-error-container">
+                  {`com.infrastream.payment.exceptions.GatewayTimeoutException: Operation timed out after 5000ms
+at com.infrastream.payment.GatewayClient.execute(GatewayClient.java:142)
+at com.infrastream.payment.BatchProcessor.process(BatchProcessor.java:94)
+at com.infrastream.worker.JobRunner.run(JobRunner.java:312)
+Caused by: java.net.SocketTimeoutException: connect timed out`}
+                </pre>
+              </div>
+            </div>
+          </Panel>
+
+          <Panel>
+            <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 sm:px-5">
+              <div>
+                <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                  Actions
+                </h2>
+                <p className="mt-1 font-body text-sm text-on-surface-variant">
+                  Job will be auto-purged in {DUMMY_PURGE_COUNTDOWN}.
+                </p>
+              </div>
+              <MockBadge label="Mixed Reality" tone="info" />
+            </div>
+            <div className="space-y-3 px-4 py-4 sm:px-5">
+              <Button
+                icon="download"
+                variant="secondary"
+                className="w-full justify-center"
+              >
                 Export Payload
-              </button>
-
-              {/* Purge from DLQ — no-op */}
-              <button
-                style={btnError}
-                aria-label="Purge from DLQ (placeholder)"
+              </Button>
+              <Button
+                icon="delete"
+                variant="danger"
+                className="w-full justify-center"
               >
-                <span
-                  className="material-icons"
-                  style={{
-                    fontSize: "0.9rem",
-                    verticalAlign: "middle",
-                    marginRight: "0.4rem",
-                  }}
-                >
-                  delete_forever
-                </span>
                 Purge from DLQ
-              </button>
-
-              {/* Retry Job — calls retryJob(id) */}
+              </Button>
               <button
-                style={{ ...btnPrimary, opacity: retrying ? 0.7 : 1 }}
+                type="button"
                 onClick={handleRetry}
                 disabled={retrying}
-                aria-label="Retry this job"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-primary bg-primary px-4 py-2 font-body text-[11px] font-semibold uppercase tracking-technical text-on-primary transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span
-                  className="material-icons"
-                  style={{
-                    fontSize: "0.9rem",
-                    verticalAlign: "middle",
-                    marginRight: "0.4rem",
-                  }}
+                  className={`material-symbols-outlined text-[18px] ${retrying ? "animate-spin" : ""}`.trim()}
                 >
-                  replay
+                  {retrying ? "refresh" : "replay"}
                 </span>
-                {retrying ? "Retrying…" : "Retry Job"}
+                {retrying ? "Retrying..." : "Retry Job"}
               </button>
-
-              {/* Retry error message */}
-              {retryError && (
-                <div
-                  style={{
-                    backgroundColor: "#1a0000",
-                    border: "1px solid #7f1d1d",
-                    borderRadius: "0.375rem",
-                    padding: "0.5rem 0.75rem",
-                    fontSize: "0.75rem",
-                    color: "#fca5a5",
-                    wordBreak: "break-word",
-                  }}
-                >
+              {retryError ? (
+                <div className="rounded border border-error bg-error/10 px-3 py-2 font-body text-sm text-on-error-container">
                   {retryError}
                 </div>
-              )}
+              ) : null}
             </div>
-          </div>
+          </Panel>
         </div>
       </div>
     </div>

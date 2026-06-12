@@ -1,59 +1,41 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { StatCard } from "../components/shared/StatCard";
-import { PriorityBadge } from "../components/shared/PriorityBadge";
-import { StatusBadge } from "../components/shared/StatusBadge";
+import { Button } from "../components/shared/Button";
+import { MockBadge } from "../components/shared/MockBadge";
+import { PageHeader } from "../components/shared/PageHeader";
 import { Pagination } from "../components/shared/Pagination";
+import { Panel } from "../components/shared/Panel";
+import { PriorityBadge } from "../components/shared/PriorityBadge";
+import { StatCard } from "../components/shared/StatCard";
+import { StatusBadge } from "../components/shared/StatusBadge";
 import type { Job, JobStatus } from "../types";
 
-// ---------------------------------------------------------------------------
-// DUMMY DATA — metric card values
-// ---------------------------------------------------------------------------
-const METRIC_ACTIVE_WORKERS = 8; // DUMMY DATA
-const METRIC_SUCCESS_RATE = "94.3%"; // DUMMY DATA
-const METRIC_SUCCESS_RATE_DELTA = "+2.1% vs yesterday"; // DUMMY DATA
-const METRIC_AVG_RUNTIME = "1 240 ms"; // DUMMY DATA
-const METRIC_AVG_RUNTIME_DELTA = "-80ms vs yesterday"; // DUMMY DATA
-const METRIC_FAILURES_24H = 7; // DUMMY DATA
-const METRIC_FAILURES_24H_DELTA = "+3 vs yesterday"; // DUMMY DATA
+const METRIC_ACTIVE_WORKERS = 14; // DUMMY DATA
+const METRIC_SUCCESS_RATE = "99.2%"; // DUMMY DATA
+const METRIC_SUCCESS_RATE_DELTA = "+0.6% vs yesterday"; // DUMMY DATA
+const METRIC_AVG_RUNTIME = "1.4s"; // DUMMY DATA
+const METRIC_AVG_RUNTIME_DELTA = "-0.2s from avg"; // DUMMY DATA
+const METRIC_FAILURES_24H = 12; // DUMMY DATA
+const METRIC_FAILURES_24H_DELTA = "+2 since last peak"; // DUMMY DATA
 
-// ---------------------------------------------------------------------------
-// DUMMY DATA — jobs table rows
-// ---------------------------------------------------------------------------
 const DUMMY_WORKER_LABEL: Record<string, string> = {
-  "job-001-aabbccdd": "worker-node-01", // DUMMY DATA
-  "job-002-eeff0011": "worker-node-02", // DUMMY DATA
-  "job-003-22334455": "worker-node-03", // DUMMY DATA
-  "job-004-66778899": "worker-node-04", // DUMMY DATA
-  "job-005-aabbccee": "worker-node-01", // DUMMY DATA
-  "job-006-bbccddee": "worker-node-02", // DUMMY DATA
-  "job-007-ccddeeff": "worker-node-03", // DUMMY DATA
-  "job-008-ddeeff00": "worker-node-04", // DUMMY DATA
-  "job-009-eeff0011": "worker-node-01", // DUMMY DATA
-  "job-010-ff001122": "worker-node-02", // DUMMY DATA
-  "job-011-00112233": "worker-node-03", // DUMMY DATA
-  "job-012-11223344": "worker-node-04", // DUMMY DATA
-  "job-013-22334455": "worker-node-01", // DUMMY DATA
-  "job-014-33445566": "worker-node-02", // DUMMY DATA
-  "job-015-44556677": "worker-node-03", // DUMMY DATA
-  "job-016-55667788": "worker-node-04", // DUMMY DATA
-  "job-017-66778899": "worker-node-01", // DUMMY DATA
-  "job-018-778899aa": "worker-node-02", // DUMMY DATA
-  "job-019-8899aabb": "worker-node-03", // DUMMY DATA
-  "job-020-99aabbcc": "worker-node-04", // DUMMY DATA
-  "job-021-aabbccdd": "worker-node-01", // DUMMY DATA
-  "job-022-bbccddee": "worker-node-02", // DUMMY DATA
-  "job-023-ccddeeff": "worker-node-03", // DUMMY DATA
-  "job-024-ddeeff00": "worker-node-04", // DUMMY DATA
-  "job-025-eeff0011": "worker-node-01", // DUMMY DATA
-};
+  "j-9f82d2a": "cdn-worker-04",
+  "j-1a4e5f9": "mail-service-relay",
+  "j-8b2c4x1": "search-cluster-01",
+  "j-4v7n9m3": "redis-mgr-02",
+  "j-0x9w2r4": "lambda-service",
+  "j-3z7l1k9": "worker-sqs-prod",
+  "j-7k0m1n2": "billing-router-02",
+  "j-5p4q3r2": "core-engine-08",
+  "j-4e3f2g1": "audit-export-01",
+  "j-1b2c3d4": "etl-node-03",
+}; // DUMMY DATA
 
-// DUMMY DATA
 const DUMMY_JOBS: Job[] = [
   {
-    id: "job-001-aabbccdd",
-    type: "ASYNC_TASK",
-    payload: { taskName: "generate-report", userId: 42 },
+    id: "j-9f82d2a",
+    type: "ImageResize",
+    payload: { taskName: "image.resize", bucket: "media-prod" },
     status: "completed",
     priority: 2,
     attempt_count: 1,
@@ -62,7 +44,7 @@ const DUMMY_JOBS: Job[] = [
     scheduled_at: "2025-07-01T08:00:00.000Z",
     recur_interval: null,
     last_error: null,
-    result: { reportUrl: "https://example.com/reports/42.pdf" },
+    result: { resized: 241 },
     started_at: "2025-07-01T08:00:01.000Z",
     completed_at: "2025-07-01T08:00:04.523Z",
     cancelled_at: null,
@@ -70,12 +52,12 @@ const DUMMY_JOBS: Job[] = [
     updated_at: "2025-07-01T08:00:04.523Z",
   },
   {
-    id: "job-002-eeff0011",
-    type: "WEBHOOK_EVENT",
+    id: "j-1a4e5f9",
+    type: "EmailDispatch",
     payload: { event: "user.signup", email: "alice@example.com" },
-    status: "processing",
+    status: "failed",
     priority: 1,
-    attempt_count: 2,
+    attempt_count: 5,
     max_retries: 5,
     next_retry_at: null,
     scheduled_at: "2025-07-01T09:15:00.000Z",
@@ -89,17 +71,17 @@ const DUMMY_JOBS: Job[] = [
     updated_at: "2025-07-01T09:15:02.000Z",
   },
   {
-    id: "job-003-22334455",
-    type: "ASYNC_TASK",
-    payload: { taskName: "send-digest", segment: "premium" },
-    status: "failed",
-    priority: 3,
-    attempt_count: 3,
+    id: "j-8b2c4x1",
+    type: "DataIndex",
+    payload: { taskName: "search.reindex", index: "products-v3" },
+    status: "processing",
+    priority: 1,
+    attempt_count: 1,
     max_retries: 3,
     next_retry_at: null,
     scheduled_at: "2025-07-01T06:00:00.000Z",
     recur_interval: "1h",
-    last_error: "ConnectionRefusedError: ECONNREFUSED 127.0.0.1:5432",
+    last_error: null,
     result: null,
     started_at: "2025-07-01T06:00:01.000Z",
     completed_at: null,
@@ -108,13 +90,13 @@ const DUMMY_JOBS: Job[] = [
     updated_at: "2025-07-01T06:02:30.000Z",
   },
   {
-    id: "job-004-66778899",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "payment.failed", orderId: "ORD-9981" },
+    id: "j-4v7n9m3",
+    type: "CacheFlush",
+    payload: { taskName: "cache.flush", region: "us-east-1" },
     status: "pending",
-    priority: 1,
+    priority: 3,
     attempt_count: 0,
-    max_retries: 5,
+    max_retries: 2,
     next_retry_at: "2025-07-02T10:00:00.000Z",
     scheduled_at: "2025-07-02T10:00:00.000Z",
     recur_interval: null,
@@ -127,28 +109,9 @@ const DUMMY_JOBS: Job[] = [
     updated_at: "2025-07-01T22:00:00.000Z",
   },
   {
-    id: "job-005-aabbccee",
-    type: "ASYNC_TASK",
-    payload: { taskName: "cleanup-temp-files" },
-    status: "cancelled",
-    priority: 3,
-    attempt_count: 0,
-    max_retries: 1,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T03:00:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: null,
-    started_at: null,
-    completed_at: null,
-    cancelled_at: "2025-07-01T03:00:00.100Z",
-    created_at: "2025-07-01T02:59:00.000Z",
-    updated_at: "2025-07-01T03:00:00.100Z",
-  },
-  {
-    id: "job-006-bbccddee",
-    type: "ASYNC_TASK",
-    payload: { taskName: "sync-inventory", warehouse: "WH-07" },
+    id: "j-0x9w2r4",
+    type: "PDFExport",
+    payload: { taskName: "invoice.export", userId: 18 },
     status: "completed",
     priority: 2,
     attempt_count: 1,
@@ -157,7 +120,7 @@ const DUMMY_JOBS: Job[] = [
     scheduled_at: "2025-07-01T10:30:00.000Z",
     recur_interval: null,
     last_error: null,
-    result: { synced: 1430 },
+    result: { exported: true },
     started_at: "2025-07-01T10:30:01.000Z",
     completed_at: "2025-07-01T10:32:15.000Z",
     cancelled_at: null,
@@ -165,123 +128,47 @@ const DUMMY_JOBS: Job[] = [
     updated_at: "2025-07-01T10:32:15.000Z",
   },
   {
-    id: "job-007-ccddeeff",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "order.shipped", orderId: "ORD-5510" },
-    status: "failed",
+    id: "j-3z7l1k9",
+    type: "ReportGen",
+    payload: { taskName: "report.generate", segment: "premium" },
+    status: "completed",
     priority: 1,
-    attempt_count: 5,
-    max_retries: 5,
+    attempt_count: 1,
+    max_retries: 3,
     next_retry_at: null,
     scheduled_at: "2025-07-01T11:00:00.000Z",
     recur_interval: null,
-    last_error: "TimeoutError: endpoint did not respond within 5000ms",
-    result: null,
+    last_error: null,
+    result: { generated: 12 },
     started_at: "2025-07-01T11:00:01.000Z",
-    completed_at: null,
+    completed_at: "2025-07-01T11:05:10.000Z",
     cancelled_at: null,
     created_at: "2025-07-01T10:59:40.000Z",
     updated_at: "2025-07-01T11:05:10.000Z",
   },
   {
-    id: "job-008-ddeeff00",
-    type: "ASYNC_TASK",
-    payload: { taskName: "compress-images", bucket: "media-prod" },
-    status: "processing",
-    priority: 3,
-    attempt_count: 1,
-    max_retries: 2,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T11:30:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: null,
-    started_at: "2025-07-01T11:30:02.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-01T11:29:55.000Z",
-    updated_at: "2025-07-01T11:30:02.000Z",
-  },
-  {
-    id: "job-009-eeff0011",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "user.deactivated", userId: 9182 },
-    status: "pending",
-    priority: 2,
-    attempt_count: 0,
+    id: "j-7k0m1n2",
+    type: "ChargeRetry",
+    payload: { taskName: "billing.charge", invoiceId: "INV-882" },
+    status: "failed",
+    priority: 1,
+    attempt_count: 3,
     max_retries: 3,
     next_retry_at: null,
     scheduled_at: "2025-07-01T12:00:00.000Z",
     recur_interval: null,
-    last_error: null,
+    last_error: "Gateway timeout",
     result: null,
-    started_at: null,
+    started_at: "2025-07-01T12:00:02.000Z",
     completed_at: null,
     cancelled_at: null,
-    created_at: "2025-07-01T11:59:00.000Z",
-    updated_at: "2025-07-01T11:59:00.000Z",
+    created_at: "2025-07-01T12:00:00.000Z",
+    updated_at: "2025-07-01T12:20:00.654Z",
   },
   {
-    id: "job-010-ff001122",
-    type: "ASYNC_TASK",
-    payload: { taskName: "recalculate-scores", cohort: "Q2-2025" },
-    status: "completed",
-    priority: 1,
-    attempt_count: 1,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T07:00:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: { updated: 5_021 },
-    started_at: "2025-07-01T07:00:01.000Z",
-    completed_at: "2025-07-01T07:04:38.000Z",
-    cancelled_at: null,
-    created_at: "2025-07-01T06:59:45.000Z",
-    updated_at: "2025-07-01T07:04:38.000Z",
-  },
-  {
-    id: "job-011-00112233",
-    type: "ASYNC_TASK",
-    payload: { taskName: "export-audit-log", fromDate: "2025-06-01" },
-    status: "failed",
-    priority: 2,
-    attempt_count: 2,
-    max_retries: 2,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T04:00:00.000Z",
-    recur_interval: null,
-    last_error: "Error: S3 PutObject failed — access denied",
-    result: null,
-    started_at: "2025-07-01T04:00:01.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-01T03:59:50.000Z",
-    updated_at: "2025-07-01T04:03:22.000Z",
-  },
-  {
-    id: "job-012-11223344",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "refund.processed", transactionId: "TXN-334455" },
-    status: "completed",
-    priority: 1,
-    attempt_count: 1,
-    max_retries: 5,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T13:00:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: { status: "refunded" },
-    started_at: "2025-07-01T13:00:01.000Z",
-    completed_at: "2025-07-01T13:00:03.110Z",
-    cancelled_at: null,
-    created_at: "2025-07-01T12:59:55.000Z",
-    updated_at: "2025-07-01T13:00:03.110Z",
-  },
-  {
-    id: "job-013-22334455",
-    type: "ASYNC_TASK",
-    payload: { taskName: "warm-cache", region: "eu-west-1" },
+    id: "j-5p4q3r2",
+    type: "WarmCache",
+    payload: { taskName: "cache.warm", region: "eu-west-1" },
     status: "cancelled",
     priority: 3,
     attempt_count: 0,
@@ -298,491 +185,80 @@ const DUMMY_JOBS: Job[] = [
     updated_at: "2025-07-01T14:00:00.200Z",
   },
   {
-    id: "job-014-33445566",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "subscription.renewed", customerId: "CUST-0042" },
-    status: "processing",
-    priority: 1,
-    attempt_count: 1,
-    max_retries: 5,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T14:30:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: null,
-    started_at: "2025-07-01T14:30:01.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-01T14:29:50.000Z",
-    updated_at: "2025-07-01T14:30:01.000Z",
-  },
-  {
-    id: "job-015-44556677",
-    type: "ASYNC_TASK",
-    payload: { taskName: "reindex-search", index: "products-v3" },
+    id: "j-4e3f2g1",
+    type: "AuditExport",
+    payload: { taskName: "audit.export", fromDate: "2025-06-01" },
     status: "completed",
     priority: 2,
     attempt_count: 1,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T15:00:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: { indexed: 88_320 },
-    started_at: "2025-07-01T15:00:01.000Z",
-    completed_at: "2025-07-01T15:12:44.000Z",
-    cancelled_at: null,
-    created_at: "2025-07-01T14:59:45.000Z",
-    updated_at: "2025-07-01T15:12:44.000Z",
-  },
-  {
-    id: "job-016-55667788",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "invoice.created", invoiceId: "INV-7788" },
-    status: "pending",
-    priority: 2,
-    attempt_count: 0,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T16:00:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: null,
-    started_at: null,
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-01T15:59:00.000Z",
-    updated_at: "2025-07-01T15:59:00.000Z",
-  },
-  {
-    id: "job-017-66778899",
-    type: "ASYNC_TASK",
-    payload: { taskName: "notify-inactive-users", daysInactive: 30 },
-    status: "failed",
-    priority: 3,
-    attempt_count: 3,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T16:30:00.000Z",
-    recur_interval: null,
-    last_error: "Error: SMTP relay rejected message — rate limit",
-    result: null,
-    started_at: "2025-07-01T16:30:01.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-01T16:29:50.000Z",
-    updated_at: "2025-07-01T16:33:05.000Z",
-  },
-  {
-    id: "job-018-778899aa",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "account.verified", userId: 7712 },
-    status: "completed",
-    priority: 2,
-    attempt_count: 1,
-    max_retries: 3,
+    max_retries: 2,
     next_retry_at: null,
     scheduled_at: "2025-07-01T17:00:00.000Z",
     recur_interval: null,
     last_error: null,
-    result: { notified: true },
-    started_at: "2025-07-01T17:00:01.000Z",
-    completed_at: "2025-07-01T17:00:02.540Z",
+    result: { exported: 4201 },
+    started_at: "2025-07-01T17:00:07.000Z",
+    completed_at: "2025-07-01T17:02:14.432Z",
     cancelled_at: null,
-    created_at: "2025-07-01T16:59:55.000Z",
-    updated_at: "2025-07-01T17:00:02.540Z",
+    created_at: "2025-07-01T17:00:00.000Z",
+    updated_at: "2025-07-01T17:02:14.432Z",
   },
   {
-    id: "job-019-8899aabb",
-    type: "ASYNC_TASK",
-    payload: { taskName: "rotate-api-keys", service: "billing" },
+    id: "j-1b2c3d4",
+    type: "ETLTransform",
+    payload: { taskName: "etl.transform", stage: "normalise" },
     status: "processing",
-    priority: 1,
+    priority: 2,
     attempt_count: 1,
-    max_retries: 2,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T17:30:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: null,
-    started_at: "2025-07-01T17:30:01.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-01T17:29:50.000Z",
-    updated_at: "2025-07-01T17:30:01.000Z",
-  },
-  {
-    id: "job-020-99aabbcc",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "trial.expired", userId: 3391 },
-    status: "pending",
-    priority: 3,
-    attempt_count: 0,
-    max_retries: 3,
+    max_retries: 5,
     next_retry_at: null,
     scheduled_at: "2025-07-01T18:00:00.000Z",
     recur_interval: null,
     last_error: null,
     result: null,
-    started_at: null,
+    started_at: "2025-07-01T18:00:03.000Z",
     completed_at: null,
     cancelled_at: null,
-    created_at: "2025-07-01T17:59:00.000Z",
-    updated_at: "2025-07-01T17:59:00.000Z",
+    created_at: "2025-07-01T18:00:00.000Z",
+    updated_at: "2025-07-01T18:01:55.210Z",
   },
-  {
-    id: "job-021-aabbccdd",
-    type: "ASYNC_TASK",
-    payload: { taskName: "archive-old-jobs", olderThan: "2025-01-01" },
-    status: "completed",
-    priority: 3,
-    attempt_count: 1,
-    max_retries: 1,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T18:30:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: { archived: 4_210 },
-    started_at: "2025-07-01T18:30:01.000Z",
-    completed_at: "2025-07-01T18:35:20.000Z",
-    cancelled_at: null,
-    created_at: "2025-07-01T18:29:45.000Z",
-    updated_at: "2025-07-01T18:35:20.000Z",
-  },
-  {
-    id: "job-022-bbccddee",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "password.reset", userId: 5543 },
-    status: "cancelled",
-    priority: 2,
-    attempt_count: 0,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T19:00:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: null,
-    started_at: null,
-    completed_at: null,
-    cancelled_at: "2025-07-01T19:00:00.300Z",
-    created_at: "2025-07-01T18:59:00.000Z",
-    updated_at: "2025-07-01T19:00:00.300Z",
-  },
-  {
-    id: "job-023-ccddeeff",
-    type: "ASYNC_TASK",
-    payload: { taskName: "send-weekly-report", channel: "slack" },
-    status: "failed",
-    priority: 2,
-    attempt_count: 2,
-    max_retries: 2,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T19:30:00.000Z",
-    recur_interval: null,
-    last_error: "Error: Slack API 429 Too Many Requests",
-    result: null,
-    started_at: "2025-07-01T19:30:01.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-01T19:29:50.000Z",
-    updated_at: "2025-07-01T19:32:08.000Z",
-  },
-  {
-    id: "job-024-ddeeff00",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "plan.upgraded", customerId: "CUST-9012" },
-    status: "completed",
-    priority: 1,
-    attempt_count: 1,
-    max_retries: 5,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T20:00:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: { activated: true },
-    started_at: "2025-07-01T20:00:01.000Z",
-    completed_at: "2025-07-01T20:00:02.890Z",
-    cancelled_at: null,
-    created_at: "2025-07-01T19:59:50.000Z",
-    updated_at: "2025-07-01T20:00:02.890Z",
-  },
-  {
-    id: "job-025-eeff0011",
-    type: "ASYNC_TASK",
-    payload: { taskName: "rebuild-materialized-views" },
-    status: "processing",
-    priority: 1,
-    attempt_count: 1,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-01T20:30:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: null,
-    started_at: "2025-07-01T20:30:01.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-01T20:29:50.000Z",
-    updated_at: "2025-07-01T20:30:01.000Z",
-  },
-];
+]; // DUMMY DATA
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatSubmittedAt(isoString: string): string {
-  const d = new Date(isoString);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ` +
-    `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`
-  );
+function formatSubmittedAt(isoString: string) {
+  const date = new Date(isoString);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
 }
 
-function computeRuntime(job: Job): string {
-  if (!job.started_at || !job.completed_at) return "—";
+function computeRuntime(job: Job) {
+  if (!job.started_at || !job.completed_at) return "--";
   const ms =
     new Date(job.completed_at).getTime() - new Date(job.started_at).getTime();
-  return `${ms} ms`;
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function getWorkerLabel(jobId: string): string {
+function getWorkerLabel(jobId: string) {
   return DUMMY_WORKER_LABEL[jobId] ?? "worker-node-01"; // DUMMY DATA
 }
 
-// ---------------------------------------------------------------------------
-// Style constants
-// ---------------------------------------------------------------------------
+const inputClassName =
+  "h-9 w-full rounded border border-outline-variant bg-surface-container-lowest px-3 font-body text-sm text-on-surface outline-none transition focus:border-primary";
 
-const styles = {
-  page: {
-    padding: "1.5rem",
-    color: "#f8fafc",
-    fontFamily:
-      "Geist, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-    minHeight: "100vh",
-    backgroundColor: "#051424",
-  } as React.CSSProperties,
-
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "1.5rem",
-  } as React.CSSProperties,
-
-  title: {
-    fontSize: "1.25rem",
-    fontWeight: 700,
-    color: "#f8fafc",
-    margin: 0,
-  } as React.CSSProperties,
-
-  headerActions: {
-    display: "flex",
-    gap: "0.75rem",
-  } as React.CSSProperties,
-
-  btnPrimary: {
-    padding: "0.5rem 1rem",
-    backgroundColor: "#0ea5e9",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: "0.375rem",
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.375rem",
-    fontFamily: "inherit",
-  } as React.CSSProperties,
-
-  btnSecondary: {
-    padding: "0.5rem 1rem",
-    backgroundColor: "#1e293b",
-    color: "#94a3b8",
-    border: "1px solid #334155",
-    borderRadius: "0.375rem",
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.375rem",
-    fontFamily: "inherit",
-  } as React.CSSProperties,
-
-  metricsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "1rem",
-    marginBottom: "1.5rem",
-  } as React.CSSProperties,
-
-  filterBar: {
-    display: "flex",
-    gap: "0.75rem",
-    flexWrap: "wrap" as const,
-    alignItems: "center",
-    backgroundColor: "#0f172a",
-    padding: "0.875rem 1rem",
-    borderRadius: "0.5rem",
-    marginBottom: "1rem",
-    border: "1px solid #1e293b",
-  } as React.CSSProperties,
-
-  filterLabel: {
-    fontSize: "0.75rem",
-    color: "#94a3b8",
-    fontWeight: 500,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-    whiteSpace: "nowrap" as const,
-  } as React.CSSProperties,
-
-  select: {
-    backgroundColor: "#1e293b",
-    color: "#f8fafc",
-    border: "1px solid #334155",
-    borderRadius: "0.375rem",
-    padding: "0.375rem 0.5rem",
-    fontSize: "0.875rem",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    outline: "none",
-  } as React.CSSProperties,
-
-  dateInput: {
-    backgroundColor: "#1e293b",
-    color: "#f8fafc",
-    border: "1px solid #334155",
-    borderRadius: "0.375rem",
-    padding: "0.375rem 0.5rem",
-    fontSize: "0.875rem",
-    fontFamily: "inherit",
-    outline: "none",
-    colorScheme: "dark" as const,
-  } as React.CSSProperties,
-
-  tableContainer: {
-    backgroundColor: "#0f172a",
-    borderRadius: "0.5rem",
-    border: "1px solid #1e293b",
-    overflow: "hidden",
-  } as React.CSSProperties,
-
-  table: {
-    width: "100%",
-    borderCollapse: "collapse" as const,
-    fontSize: "0.875rem",
-  } as React.CSSProperties,
-
-  th: {
-    padding: "0.75rem 1rem",
-    textAlign: "left" as const,
-    fontSize: "0.7rem",
-    fontWeight: 600,
-    color: "#94a3b8",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-    borderBottom: "1px solid #1e293b",
-    backgroundColor: "#0f172a",
-    whiteSpace: "nowrap" as const,
-  } as React.CSSProperties,
-
-  td: {
-    padding: "0.75rem 1rem",
-    borderBottom: "1px solid #1e293b",
-    color: "#f8fafc",
-    verticalAlign: "middle" as const,
-  } as React.CSSProperties,
-
-  tdMuted: {
-    padding: "0.75rem 1rem",
-    borderBottom: "1px solid #1e293b",
-    color: "#94a3b8",
-    verticalAlign: "middle" as const,
-    fontVariantNumeric: "tabular-nums" as const,
-  } as React.CSSProperties,
-
-  jobId: {
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-    fontSize: "0.75rem",
-    color: "#0ea5e9",
-  } as React.CSSProperties,
-
-  typeLabel: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    color: "#f8fafc",
-  } as React.CSSProperties,
-
-  workerLabel: {
-    fontSize: "0.75rem",
-    color: "#94a3b8",
-    marginTop: "2px",
-  } as React.CSSProperties,
-
-  btnAction: {
-    padding: "0.25rem 0.625rem",
-    border: "none",
-    borderRadius: "0.25rem",
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    letterSpacing: "0.025em",
-  } as React.CSSProperties,
-
-  emptyRow: {
-    textAlign: "center" as const,
-    padding: "3rem 1rem",
-    color: "#475569",
-    fontSize: "0.875rem",
-  } as React.CSSProperties,
-
-  paginationBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "0.875rem 1rem",
-    borderTop: "1px solid #1e293b",
-    backgroundColor: "#0f172a",
-  } as React.CSSProperties,
-
-  paginationInfo: {
-    fontSize: "0.8rem",
-    color: "#94a3b8",
-  } as React.CSSProperties,
-} as const;
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 5;
 
 export default function JobsLedger() {
   const navigate = useNavigate();
-
-  // Filter state
   const [statusFilter, setStatusFilter] = useState<"" | JobStatus>("");
   const [priorityFilter, setPriorityFilter] = useState<"" | "1" | "2" | "3">(
     "",
   );
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Compute filtered list
   const filteredJobs = useMemo(() => {
     return DUMMY_JOBS.filter((job) => {
-      // DUMMY DATA
       if (statusFilter && job.status !== statusFilter) return false;
       if (priorityFilter && job.priority !== Number(priorityFilter))
         return false;
@@ -796,264 +272,280 @@ export default function JobsLedger() {
       }
       return true;
     });
-  }, [statusFilter, priorityFilter, dateFrom, dateTo]);
+  }, [dateFrom, dateTo, priorityFilter, statusFilter]);
 
-  // Reset to page 1 whenever filter changes
   const totalPages = Math.max(1, Math.ceil(filteredJobs.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
-
   const pageStart = (safePage - 1) * PAGE_SIZE;
   const pageEnd = pageStart + PAGE_SIZE;
   const pageJobs = filteredJobs.slice(pageStart, pageEnd);
 
-  const handlePrev = () => setCurrentPage((p) => Math.max(1, p - 1));
-  const handleNext = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
-
-  // Reset page when filters change
-  const handleStatusChange = (v: "" | JobStatus) => {
-    setStatusFilter(v);
+  function resetFilters() {
+    setStatusFilter("");
+    setPriorityFilter("");
+    setDateFrom("");
+    setDateTo("");
     setCurrentPage(1);
-  };
-  const handlePriorityChange = (v: "" | "1" | "2" | "3") => {
-    setPriorityFilter(v);
-    setCurrentPage(1);
-  };
-  const handleDateFromChange = (v: string) => {
-    setDateFrom(v);
-    setCurrentPage(1);
-  };
-  const handleDateToChange = (v: string) => {
-    setDateTo(v);
-    setCurrentPage(1);
-  };
+  }
 
   return (
-    <div style={styles.page}>
-      {/* Header */}
-      <div style={styles.header}>
-        <h1 style={styles.title}>Jobs Ledger</h1>
-        <div style={styles.headerActions}>
-          <button
-            style={styles.btnSecondary}
-            onClick={() => {
-              /* non-functional placeholder */
-            }}
-            aria-label="Export CSV"
-          >
-            <span className="material-icons" style={{ fontSize: "1rem" }}>
-              download
-            </span>
-            Export CSV
-          </button>
-          <button
-            style={styles.btnPrimary}
-            onClick={() => navigate("/jobs/new")}
-            aria-label="New Manual Job"
-          >
-            <span className="material-icons" style={{ fontSize: "1rem" }}>
-              add
-            </span>
-            New Manual Job
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Work Queue"
+        title="Jobs Ledger"
+        description="Real-time history and management of all background processing tasks, currently rendered from dummy data fixtures."
+        badges={<MockBadge label="Dummy Data" />}
+        actions={
+          <>
+            <Button icon="download" variant="secondary">
+              Export CSV
+            </Button>
+            <Button
+              icon="add"
+              variant="primary"
+              onClick={() => navigate("/jobs/new")}
+            >
+              New Manual Job
+            </Button>
+          </>
+        }
+      />
 
-      {/* Metric cards */}
-      <div style={styles.metricsGrid}>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Active Workers"
-          value={METRIC_ACTIVE_WORKERS /* DUMMY DATA */}
+          value={METRIC_ACTIVE_WORKERS}
           accentColor="#0ea5e9"
-          icon="engineering"
         />
         <StatCard
           label="Success Rate (24h)"
-          value={METRIC_SUCCESS_RATE /* DUMMY DATA */}
+          value={METRIC_SUCCESS_RATE}
+          delta={METRIC_SUCCESS_RATE_DELTA}
           accentColor="#10b981"
-          delta={METRIC_SUCCESS_RATE_DELTA /* DUMMY DATA */}
           icon="trending_up"
         />
         <StatCard
           label="Avg. Runtime"
-          value={METRIC_AVG_RUNTIME /* DUMMY DATA */}
+          value={METRIC_AVG_RUNTIME}
+          delta={METRIC_AVG_RUNTIME_DELTA}
           accentColor="#f59e0b"
-          delta={METRIC_AVG_RUNTIME_DELTA /* DUMMY DATA */}
           icon="timer"
         />
         <StatCard
           label="Failures (24h)"
-          value={METRIC_FAILURES_24H /* DUMMY DATA */}
+          value={METRIC_FAILURES_24H}
+          delta={METRIC_FAILURES_24H_DELTA}
           accentColor="#ef4444"
-          delta={METRIC_FAILURES_24H_DELTA /* DUMMY DATA */}
-          icon="error_outline"
+          icon="warning"
         />
       </div>
 
-      {/* Filter bar */}
-      <div style={styles.filterBar}>
-        <span style={styles.filterLabel}>Filters:</span>
+      <Panel className="p-4 sm:p-5">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12 xl:items-end">
+          <div className="xl:col-span-3">
+            <label className="mb-2 block font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+              Status
+            </label>
+            <select
+              className={inputClassName}
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(event.target.value as "" | JobStatus);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="">All Statuses</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="processing">Processing</option>
+              <option value="pending">Queued</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div className="xl:col-span-3">
+            <label className="mb-2 block font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+              Priority
+            </label>
+            <select
+              className={inputClassName}
+              value={priorityFilter}
+              onChange={(event) => {
+                setPriorityFilter(event.target.value as "" | "1" | "2" | "3");
+                setCurrentPage(1);
+              }}
+            >
+              <option value="">All Priorities</option>
+              <option value="1">Critical</option>
+              <option value="2">Med</option>
+              <option value="3">Low</option>
+            </select>
+          </div>
+          <div className="xl:col-span-4">
+            <label className="mb-2 block font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+              Date Range
+            </label>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              <input
+                type="date"
+                className={inputClassName}
+                value={dateFrom}
+                onChange={(event) => {
+                  setDateFrom(event.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+              <span className="font-body text-xs text-on-surface-variant">
+                to
+              </span>
+              <input
+                type="date"
+                className={inputClassName}
+                value={dateTo}
+                onChange={(event) => {
+                  setDateTo(event.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 xl:col-span-2 xl:justify-end">
+            <MockBadge label="Local Filters" tone="info" />
+            <Button icon="filter_alt_off" variant="link" onClick={resetFilters}>
+              Reset Filters
+            </Button>
+          </div>
+        </div>
+      </Panel>
 
-        {/* Status */}
-        <select
-          style={styles.select}
-          value={statusFilter}
-          onChange={(e) => handleStatusChange(e.target.value as "" | JobStatus)}
-          aria-label="Filter by status"
-        >
-          <option value="">All Statuses</option>
-          <option value="completed">Completed</option>
-          <option value="failed">Failed</option>
-          <option value="processing">Processing</option>
-          <option value="pending">Queued / Pending</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+      <Panel className="overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-outline-variant px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                Jobs Ledger Table
+              </h2>
+              <MockBadge label="Dummy Rows" />
+            </div>
+            <p className="font-body text-sm text-on-surface-variant">
+              Dense tabular view aligned to the Stitch ledger layout.
+            </p>
+          </div>
+          <MockBadge label={`${filteredJobs.length} visible`} tone="neutral" />
+        </div>
 
-        {/* Priority */}
-        <select
-          style={styles.select}
-          value={priorityFilter}
-          onChange={(e) =>
-            handlePriorityChange(e.target.value as "" | "1" | "2" | "3")
-          }
-          aria-label="Filter by priority"
-        >
-          <option value="">All Priorities</option>
-          <option value="1">Critical / High (1)</option>
-          <option value="2">Med (2)</option>
-          <option value="3">Low (3)</option>
-        </select>
-
-        {/* Date range */}
-        <span style={styles.filterLabel}>From:</span>
-        <input
-          type="datetime-local"
-          style={styles.dateInput}
-          value={dateFrom}
-          onChange={(e) => handleDateFromChange(e.target.value)}
-          aria-label="Date range from"
-        />
-        <span style={styles.filterLabel}>To:</span>
-        <input
-          type="datetime-local"
-          style={styles.dateInput}
-          value={dateTo}
-          onChange={(e) => handleDateToChange(e.target.value)}
-          aria-label="Date range to"
-        />
-      </div>
-
-      {/* Table */}
-      <div style={styles.tableContainer}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Job ID</th>
-              <th style={styles.th}>Type / Worker</th>
-              <th style={styles.th}>Priority</th>
-              <th style={styles.th}>Submitted At</th>
-              <th style={styles.th}>Runtime</th>
-              <th style={styles.th}>Status</th>
-              <th style={styles.th}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageJobs.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={styles.emptyRow}>
-                  No jobs match the current filters.
-                </td>
+        <div className="overflow-x-auto">
+          <table className="app-table min-w-full border-collapse text-left">
+            <thead>
+              <tr className="bg-surface-container-highest/50">
+                <th className="px-4 py-3">Job ID</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3 text-center">Priority</th>
+                <th className="px-4 py-3">Submitted At</th>
+                <th className="px-4 py-3">Runtime</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
-            ) : (
-              pageJobs.map((job) => (
-                <tr key={job.id}>
-                  {/* Job ID */}
-                  <td style={styles.td}>
-                    <span style={styles.jobId}>{job.id}</span>
-                  </td>
-
-                  {/* Type / Worker */}
-                  <td style={styles.td}>
-                    <div style={styles.typeLabel}>{job.type}</div>
-                    <div style={styles.workerLabel}>
-                      {getWorkerLabel(job.id)}
-                    </div>
-                  </td>
-
-                  {/* Priority */}
-                  <td style={styles.td}>
-                    <PriorityBadge priority={job.priority} />
-                  </td>
-
-                  {/* Submitted At */}
-                  <td style={styles.tdMuted}>
-                    {formatSubmittedAt(job.created_at)}
-                  </td>
-
-                  {/* Runtime */}
-                  <td style={styles.tdMuted}>{computeRuntime(job)}</td>
-
-                  {/* Status */}
-                  <td style={styles.td}>
-                    <StatusBadge status={job.status} />
-                  </td>
-
-                  {/* Actions */}
-                  <td style={styles.td}>
-                    {(job.status === "pending" ||
-                      job.status === "processing") && (
-                      <button
-                        style={{
-                          ...styles.btnAction,
-                          backgroundColor: "#1e293b",
-                          color: "#f59e0b",
-                          border: "1px solid #f59e0b33",
-                        }}
-                        aria-label={`Cancel job ${job.id}`}
-                        onClick={() => {
-                          /* placeholder — no API wired */
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    )}
-                    {job.status === "failed" && (
-                      <button
-                        style={{
-                          ...styles.btnAction,
-                          backgroundColor: "#1e293b",
-                          color: "#0ea5e9",
-                          border: "1px solid #0ea5e933",
-                        }}
-                        aria-label={`Retry job ${job.id}`}
-                        onClick={() => {
-                          /* placeholder — no API wired */
-                        }}
-                      >
-                        Retry
-                      </button>
-                    )}
+            </thead>
+            <tbody className="divide-y divide-outline-variant/60">
+              {pageJobs.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-4 py-12 text-center font-body text-sm text-on-surface-variant"
+                  >
+                    No jobs match the current filters.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                pageJobs.map((job) => (
+                  <tr
+                    key={job.id}
+                    className="transition hover:bg-surface-container-highest/20"
+                  >
+                    <td className="px-4 py-3 font-code text-[12px] text-primary">
+                      #{job.id}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-body text-sm font-medium text-on-surface">
+                          {job.type}
+                        </span>
+                        <span className="font-code text-[11px] text-on-surface-variant">
+                          {getWorkerLabel(job.id)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <PriorityBadge priority={job.priority} />
+                    </td>
+                    <td className="px-4 py-3 font-body text-xs text-on-surface-variant">
+                      {formatSubmittedAt(job.created_at)}
+                    </td>
+                    <td className="px-4 py-3 font-code text-[12px] text-on-surface">
+                      {computeRuntime(job)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={job.status} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {job.status === "failed" ? (
+                          <button
+                            type="button"
+                            className="rounded border border-primary/40 bg-primary/10 p-1.5 text-primary transition hover:bg-primary/20"
+                            aria-label={`Retry job ${job.id}`}
+                          >
+                            <span className="material-symbols-outlined text-[18px]">
+                              replay
+                            </span>
+                          </button>
+                        ) : null}
+                        {job.status === "pending" ||
+                        job.status === "processing" ? (
+                          <button
+                            type="button"
+                            className="rounded border border-error/40 bg-error/10 p-1.5 text-error transition hover:bg-error/20"
+                            aria-label={`Cancel job ${job.id}`}
+                          >
+                            <span className="material-symbols-outlined text-[18px]">
+                              stop_circle
+                            </span>
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="rounded border border-outline-variant bg-surface-container-low p-1.5 text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
+                          aria-label={`Inspect job ${job.id}`}
+                        >
+                          <span className="material-symbols-outlined text-[18px]">
+                            terminal
+                          </span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-        {/* Pagination bar */}
-        <div style={styles.paginationBar}>
-          <span style={styles.paginationInfo}>
-            Showing {filteredJobs.length === 0 ? 0 : pageStart + 1}–
+        <div className="flex flex-col gap-3 border-t border-outline-variant bg-surface-container-low px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <span className="font-body text-sm text-on-surface-variant">
+            Showing {filteredJobs.length === 0 ? 0 : pageStart + 1} to{" "}
             {Math.min(pageEnd, filteredJobs.length)} of {filteredJobs.length}{" "}
-            jobs
+            entries
           </span>
           <Pagination
             currentPage={safePage}
             totalPages={totalPages}
-            onPrev={handlePrev}
-            onNext={handleNext}
+            onPrev={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            onNext={() =>
+              setCurrentPage((page) => Math.min(totalPages, page + 1))
+            }
           />
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }

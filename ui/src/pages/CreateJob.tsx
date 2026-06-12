@@ -1,366 +1,57 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button } from "../components/shared/Button";
+import { MockBadge } from "../components/shared/MockBadge";
+import { PageHeader } from "../components/shared/PageHeader";
+import { Panel } from "../components/shared/Panel";
 import { createJob } from "../services/api";
 import type { CreateJobInput } from "../types";
 
-// ---------------------------------------------------------------------------
-// DUMMY DATA — processor type options
-// ---------------------------------------------------------------------------
 const PROCESSOR_OPTIONS = [
-  // DUMMY DATA
   "Standard Lambda-Node20",
   "High Memory Compute-v4",
   "GPU Accelerated Tensor-X",
   "Legacy Python-3.8",
-] as const;
+] as const; // DUMMY DATA
 
-// ---------------------------------------------------------------------------
-// DUMMY DATA — default payload JSON example
-// ---------------------------------------------------------------------------
 const DEFAULT_PAYLOAD_JSON = JSON.stringify(
-  // DUMMY DATA
   {
-    taskName: "example-task",
-    userId: 42,
-    options: {
-      notify: true,
-      retryOnFail: false,
+    action: "clear_cache",
+    parameters: {
+      scope: "global",
+      ttl: 3600,
+    },
+    retry_policy: {
+      attempts: 3,
+      backoff: "exponential",
     },
   },
   null,
   2,
-);
+); // DUMMY DATA
 
-// ---------------------------------------------------------------------------
-// DUMMY DATA — engine health widget values
-// ---------------------------------------------------------------------------
-const ENGINE_CLUSTER_LOAD = "38%"; // DUMMY DATA
-const ENGINE_IDLE_WORKERS = 12; // DUMMY DATA
-const ENGINE_AVG_WAIT = "240 ms"; // DUMMY DATA
+const ENGINE_CLUSTER_LOAD = "42%"; // DUMMY DATA
+const ENGINE_IDLE_WORKERS = 18; // DUMMY DATA
+const ENGINE_AVG_WAIT = "14ms"; // DUMMY DATA
 
-// ---------------------------------------------------------------------------
-// Style constants
-// ---------------------------------------------------------------------------
-
-const styles = {
-  page: {
-    color: "#f8fafc",
-    fontFamily:
-      "Geist, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-    minHeight: "100vh",
-    backgroundColor: "#051424",
-  } as React.CSSProperties,
-
-  header: {
-    marginBottom: "1.5rem",
-  } as React.CSSProperties,
-
-  title: {
-    fontSize: "1.25rem",
-    fontWeight: 700,
-    color: "#f8fafc",
-    margin: 0,
-    marginBottom: "0.25rem",
-  } as React.CSSProperties,
-
-  subtitle: {
-    fontSize: "0.875rem",
-    color: "#94a3b8",
-    margin: 0,
-  } as React.CSSProperties,
-
-  columns: {
-    display: "grid",
-    gridTemplateColumns: "1fr 340px",
-    gap: "1.5rem",
-    alignItems: "start",
-  } as React.CSSProperties,
-
-  // Left panel — form
-  formPanel: {
-    backgroundColor: "#0f172a",
-    borderRadius: "0.5rem",
-    border: "1px solid #1e293b",
-    padding: "1.5rem",
-  } as React.CSSProperties,
-
-  formTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 700,
-    color: "#94a3b8",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.08em",
-    margin: "0 0 1.25rem 0",
-  } as React.CSSProperties,
-
-  fieldGroup: {
-    marginBottom: "1.25rem",
-  } as React.CSSProperties,
-
-  label: {
-    display: "block",
-    fontSize: "0.8rem",
-    fontWeight: 600,
-    color: "#94a3b8",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.06em",
-    marginBottom: "0.375rem",
-  } as React.CSSProperties,
-
-  input: {
-    width: "100%",
-    backgroundColor: "#1e293b",
-    color: "#f8fafc",
-    border: "1px solid #334155",
-    borderRadius: "0.375rem",
-    padding: "0.5rem 0.75rem",
-    fontSize: "0.875rem",
-    fontFamily: "inherit",
-    outline: "none",
-    boxSizing: "border-box" as const,
-    colorScheme: "dark" as const,
-  } as React.CSSProperties,
-
-  inputFocus: {
-    borderColor: "#0ea5e9",
-  } as React.CSSProperties,
-
-  select: {
-    width: "100%",
-    backgroundColor: "#1e293b",
-    color: "#f8fafc",
-    border: "1px solid #334155",
-    borderRadius: "0.375rem",
-    padding: "0.5rem 0.75rem",
-    fontSize: "0.875rem",
-    fontFamily: "inherit",
-    outline: "none",
-    cursor: "pointer",
-    boxSizing: "border-box" as const,
-  } as React.CSSProperties,
-
-  radioGroup: {
-    display: "flex",
-    gap: "1rem",
-    flexWrap: "wrap" as const,
-  } as React.CSSProperties,
-
-  radioLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.375rem",
-    fontSize: "0.875rem",
-    color: "#f8fafc",
-    cursor: "pointer",
-  } as React.CSSProperties,
-
-  radio: {
-    accentColor: "#0ea5e9",
-    cursor: "pointer",
-  } as React.CSSProperties,
-
-  textareaWrapper: {
-    position: "relative" as const,
-  } as React.CSSProperties,
-
-  textarea: {
-    width: "100%",
-    backgroundColor: "#1e293b",
-    color: "#f8fafc",
-    border: "1px solid #334155",
-    borderRadius: "0.375rem",
-    padding: "0.5rem 0.75rem",
-    fontSize: "0.8rem",
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-    outline: "none",
-    resize: "vertical" as const,
-    minHeight: "140px",
-    boxSizing: "border-box" as const,
-  } as React.CSSProperties,
-
-  prettifyRow: {
-    display: "flex",
-    justifyContent: "flex-end",
-    marginTop: "0.375rem",
-  } as React.CSSProperties,
-
-  btnPrettify: {
-    padding: "0.25rem 0.75rem",
-    backgroundColor: "#1e293b",
-    color: "#0ea5e9",
-    border: "1px solid #334155",
-    borderRadius: "0.25rem",
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    letterSpacing: "0.04em",
-  } as React.CSSProperties,
-
-  fieldError: {
-    fontSize: "0.75rem",
-    color: "#ef4444",
-    marginTop: "0.375rem",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.25rem",
-  } as React.CSSProperties,
-
-  formActions: {
-    display: "flex",
-    gap: "0.75rem",
-    justifyContent: "flex-end",
-    marginTop: "1.5rem",
-    paddingTop: "1.25rem",
-    borderTop: "1px solid #1e293b",
-  } as React.CSSProperties,
-
-  btnCancel: {
-    padding: "0.5rem 1.25rem",
-    backgroundColor: "transparent",
-    color: "#94a3b8",
-    border: "1px solid #334155",
-    borderRadius: "0.375rem",
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: "inherit",
-  } as React.CSSProperties,
-
-  btnSubmit: {
-    padding: "0.5rem 1.25rem",
-    backgroundColor: "#0ea5e9",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: "0.375rem",
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.375rem",
-  } as React.CSSProperties,
-
-  btnSubmitDisabled: {
-    opacity: 0.6,
-    cursor: "not-allowed",
-  } as React.CSSProperties,
-
-  apiError: {
-    backgroundColor: "#1e293b",
-    border: "1px solid #ef4444",
-    borderRadius: "0.375rem",
-    padding: "0.75rem 1rem",
-    fontSize: "0.8rem",
-    color: "#ef4444",
-    marginBottom: "1rem",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-  } as React.CSSProperties,
-
-  // Right panel
-  rightPanel: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "1rem",
-  } as React.CSSProperties,
-
-  infoCard: {
-    backgroundColor: "#0f172a",
-    borderRadius: "0.5rem",
-    border: "1px solid #1e293b",
-    padding: "1rem",
-  } as React.CSSProperties,
-
-  infoCardTitle: {
-    fontSize: "0.8rem",
-    fontWeight: 700,
-    color: "#0ea5e9",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.08em",
-    marginBottom: "0.625rem",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.375rem",
-  } as React.CSSProperties,
-
-  infoCardBody: {
-    fontSize: "0.8rem",
-    color: "#94a3b8",
-    lineHeight: 1.6,
-  } as React.CSSProperties,
-
-  engineCard: {
-    backgroundColor: "#0f172a",
-    borderRadius: "0.5rem",
-    border: "1px solid #1e293b",
-    padding: "1rem",
-  } as React.CSSProperties,
-
-  engineTitle: {
-    fontSize: "0.8rem",
-    fontWeight: 700,
-    color: "#10b981",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.08em",
-    marginBottom: "0.75rem",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.375rem",
-  } as React.CSSProperties,
-
-  engineRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "0.375rem 0",
-    borderBottom: "1px solid #1e293b",
-  } as React.CSSProperties,
-
-  engineRowLast: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "0.375rem 0",
-  } as React.CSSProperties,
-
-  engineKey: {
-    fontSize: "0.75rem",
-    color: "#94a3b8",
-  } as React.CSSProperties,
-
-  engineValue: {
-    fontSize: "0.8rem",
-    fontWeight: 600,
-    color: "#f8fafc",
-    fontVariantNumeric: "tabular-nums" as const,
-  } as React.CSSProperties,
-} as const;
-
-// ---------------------------------------------------------------------------
-// Priority options
-// ---------------------------------------------------------------------------
 const PRIORITY_OPTIONS: {
   label: string;
   value: 1 | 2 | 3;
   description: string;
 }[] = [
-  { label: "Critical", value: 1, description: "Highest queue priority" },
-  { label: "Normal", value: 2, description: "Standard priority" },
-  { label: "Low", value: 3, description: "Best-effort scheduling" },
+  { label: "Critical", value: 1, description: "Jumps to the top of the queue" },
+  { label: "Normal", value: 2, description: "Standard scheduler priority" },
+  { label: "Low", value: 3, description: "Best-effort processing" },
 ];
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+const inputClassName =
+  "h-11 w-full rounded border border-outline-variant bg-surface-container-lowest px-3 font-body text-sm text-on-surface outline-none transition focus:border-primary";
+
+const textareaClassName =
+  "min-h-[220px] w-full resize-none rounded-lg border border-outline-variant bg-transparent px-4 py-3 font-code text-[13px] leading-6 text-primary outline-none";
 
 export default function CreateJob() {
   const navigate = useNavigate();
-
-  // Form state
   const [jobName, setJobName] = useState("");
   const [processorType, setProcessorType] = useState<string>(
     PROCESSOR_OPTIONS[0],
@@ -368,19 +59,12 @@ export default function CreateJob() {
   const [scheduledStart, setScheduledStart] = useState("");
   const [priority, setPriority] = useState<1 | 2 | 3>(2);
   const [payloadJson, setPayloadJson] = useState(DEFAULT_PAYLOAD_JSON);
-
-  // Validation errors
   const [payloadError, setPayloadError] = useState<string | null>(null);
   const [scheduledError, setScheduledError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [prettifyError, setPrettifyError] = useState<string | null>(null);
-
-  // Submission state
   const [submitting, setSubmitting] = useState(false);
 
-  // ---------------------------------------------------------------------------
-  // Prettify handler (5.2, 5.3)
-  // ---------------------------------------------------------------------------
   function handlePrettify() {
     setPrettifyError(null);
     try {
@@ -391,44 +75,35 @@ export default function CreateJob() {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Submit handler (5.4, 5.5, 5.6)
-  // ---------------------------------------------------------------------------
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    // Reset errors
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setPayloadError(null);
     setScheduledError(null);
     setApiError(null);
 
     let hasError = false;
+    let parsedPayload: Record<string, unknown> = {};
 
-    // Validate payload JSON
-    let parsedPayload: Record<string, unknown>;
     try {
       parsedPayload = JSON.parse(payloadJson);
     } catch {
       setPayloadError("Payload must be valid JSON");
       hasError = true;
-      parsedPayload = {};
     }
 
-    // Validate scheduled_at is in the future
     let scheduledAtMs: number | undefined;
     if (scheduledStart) {
-      const ts = new Date(scheduledStart).getTime();
-      if (ts <= Date.now()) {
+      const timestamp = new Date(scheduledStart).getTime();
+      if (timestamp <= Date.now()) {
         setScheduledError("Scheduled time must be in the future");
         hasError = true;
       } else {
-        scheduledAtMs = ts;
+        scheduledAtMs = timestamp;
       }
     }
 
     if (hasError) return;
 
-    // Build payload
     const input: CreateJobInput = {
       type: jobName,
       payload: parsedPayload,
@@ -440,346 +115,319 @@ export default function CreateJob() {
     try {
       await createJob(input);
       navigate("/jobs");
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "An unexpected error occurred";
-      setApiError(message);
+    } catch (error) {
+      setApiError(
+        error instanceof Error ? error.message : "An unexpected error occurred",
+      );
     } finally {
       setSubmitting(false);
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Cancel handler (5.7)
-  // ---------------------------------------------------------------------------
-  function handleCancel() {
-    navigate("/jobs");
-  }
-
   return (
-    <div style={styles.page}>
-      {/* Page header */}
-      <div style={styles.header}>
-        <h1 style={styles.title}>Create New Job</h1>
-        <p style={styles.subtitle}>
-          Manually dispatch a background job to the scheduler queue.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Job Dispatch"
+        title="Create New Execution Job"
+        description="Configure a manual job request using the Stitch-inspired control surface while keeping backend integration deferred."
+        badges={
+          <>
+            <MockBadge label="Dummy Options" />
+            <MockBadge label="Live Submit Path" tone="info" />
+          </>
+        }
+      />
 
-      {/* Two-column layout */}
-      <div style={styles.columns}>
-        {/* ---------------------------------------------------------------- */}
-        {/* Left panel — form                                                 */}
-        {/* ---------------------------------------------------------------- */}
-        <div style={styles.formPanel}>
-          <p style={styles.formTitle}>Job Configuration</p>
-
-          {/* API error banner */}
-          {apiError && (
-            <div style={styles.apiError} role="alert">
-              <span className="material-icons" style={{ fontSize: "1rem" }}>
-                error_outline
-              </span>
-              {apiError}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <Panel className="xl:col-span-8">
+          <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                Job Configuration
+              </h2>
+              <MockBadge label="Dummy Data" />
             </div>
-          )}
+          </div>
 
-          <form onSubmit={handleSubmit} noValidate>
-            {/* Job Name */}
-            <div style={styles.fieldGroup}>
-              <label htmlFor="job-name" style={styles.label}>
-                Job Name
-              </label>
-              <input
-                id="job-name"
-                type="text"
-                style={styles.input}
-                value={jobName}
-                onChange={(e) => setJobName(e.target.value)}
-                placeholder="e.g. ASYNC_TASK"
-                required
-                autoComplete="off"
-                aria-label="Job Name"
-              />
-            </div>
-
-            {/* Processor Type */}
-            <div style={styles.fieldGroup}>
-              <label htmlFor="processor-type" style={styles.label}>
-                Processor Type
-              </label>
-              <select
-                id="processor-type"
-                style={styles.select}
-                value={processorType}
-                onChange={(e) => setProcessorType(e.target.value)}
-                aria-label="Processor Type"
-              >
-                {PROCESSOR_OPTIONS.map(
-                  (
-                    opt, // DUMMY DATA
-                  ) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ),
-                )}
-              </select>
-            </div>
-
-            {/* Scheduled Start */}
-            <div style={styles.fieldGroup}>
-              <label htmlFor="scheduled-start" style={styles.label}>
-                Scheduled Start{" "}
-                <span style={{ color: "#475569", fontWeight: 400 }}>
-                  (optional)
-                </span>
-              </label>
-              <input
-                id="scheduled-start"
-                type="datetime-local"
-                style={styles.input}
-                value={scheduledStart}
-                onChange={(e) => {
-                  setScheduledStart(e.target.value);
-                  setScheduledError(null);
-                }}
-                aria-label="Scheduled Start"
-                aria-describedby={
-                  scheduledError ? "scheduled-error" : undefined
-                }
-              />
-              {scheduledError && (
-                <p id="scheduled-error" style={styles.fieldError} role="alert">
-                  <span
-                    className="material-icons"
-                    style={{ fontSize: "0.9rem" }}
-                  >
-                    warning
-                  </span>
-                  {scheduledError}
-                </p>
-              )}
-            </div>
-
-            {/* Priority Level */}
-            <div style={styles.fieldGroup}>
-              <span style={styles.label}>Priority Level</span>
-              <div
-                style={styles.radioGroup}
-                role="radiogroup"
-                aria-label="Priority Level"
-              >
-                {PRIORITY_OPTIONS.map((opt) => (
-                  <label
-                    key={opt.value}
-                    style={styles.radioLabel}
-                    title={opt.description}
-                  >
-                    <input
-                      type="radio"
-                      name="priority"
-                      value={opt.value}
-                      checked={priority === opt.value}
-                      onChange={() => setPriority(opt.value)}
-                      style={styles.radio}
-                      aria-label={opt.label}
-                    />
-                    {opt.label}
-                  </label>
-                ))}
+          <div className="px-4 py-5 sm:px-5">
+            {apiError ? (
+              <div className="mb-5 rounded border border-error bg-error/10 px-4 py-3 text-sm text-on-error-container">
+                {apiError}
               </div>
-            </div>
+            ) : null}
 
-            {/* Payload JSON */}
-            <div style={styles.fieldGroup}>
-              <label htmlFor="payload-json" style={styles.label}>
-                Payload JSON
-              </label>
-              <div style={styles.textareaWrapper}>
-                <textarea
-                  id="payload-json"
-                  style={{
-                    ...styles.textarea,
-                    ...(payloadError ? { borderColor: "#ef4444" } : {}),
-                  }}
-                  value={payloadJson}
-                  onChange={(e) => {
-                    setPayloadJson(e.target.value);
-                    setPayloadError(null);
-                    setPrettifyError(null);
-                  }}
-                  aria-label="Payload JSON"
-                  aria-describedby={payloadError ? "payload-error" : undefined}
-                  spellCheck={false}
+            <form className="space-y-6" onSubmit={handleSubmit} noValidate>
+              <div className="space-y-2">
+                <label
+                  htmlFor="job-name"
+                  className="block font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant"
+                >
+                  Job Name
+                </label>
+                <input
+                  id="job-name"
+                  type="text"
+                  className={inputClassName}
+                  value={jobName}
+                  onChange={(event) => setJobName(event.target.value)}
+                  placeholder="e.g. ASYNC_TASK"
+                  autoComplete="off"
+                  required
                 />
               </div>
-              <div style={styles.prettifyRow}>
-                <button
-                  type="button"
-                  style={styles.btnPrettify}
-                  onClick={handlePrettify}
-                  aria-label="Prettify JSON"
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor="processor-type"
+                      className="block font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant"
+                    >
+                      Processor Type
+                    </label>
+                    <MockBadge label="Dummy Options" tone="warning" />
+                  </div>
+                  <select
+                    id="processor-type"
+                    className={inputClassName}
+                    value={processorType}
+                    onChange={(event) => setProcessorType(event.target.value)}
+                  >
+                    {PROCESSOR_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="scheduled-start"
+                    className="block font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant"
+                  >
+                    Scheduled Start
+                  </label>
+                  <input
+                    id="scheduled-start"
+                    type="datetime-local"
+                    className={inputClassName}
+                    value={scheduledStart}
+                    onChange={(event) => {
+                      setScheduledStart(event.target.value);
+                      setScheduledError(null);
+                    }}
+                  />
+                  {scheduledError ? (
+                    <p className="text-sm text-error">{scheduledError}</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                  Priority Level
+                </label>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  {PRIORITY_OPTIONS.map((option) => {
+                    const active = priority === option.value;
+                    return (
+                      <label
+                        key={option.value}
+                        className={[
+                          "cursor-pointer rounded-lg border p-4 transition",
+                          active
+                            ? "border-primary bg-primary/10"
+                            : "border-outline-variant bg-surface-container-low hover:border-outline hover:bg-surface-container-high",
+                        ].join(" ")}
+                      >
+                        <input
+                          type="radio"
+                          name="priority"
+                          value={option.value}
+                          checked={active}
+                          onChange={() => setPriority(option.value)}
+                          className="sr-only"
+                        />
+                        <div className="space-y-1 text-center">
+                          <p
+                            className={`font-body text-sm font-medium ${active ? "text-primary" : "text-on-surface"}`}
+                          >
+                            {option.label}
+                          </p>
+                          <p className="font-body text-xs text-on-surface-variant">
+                            {option.description}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label
+                    htmlFor="payload-json"
+                    className="block font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant"
+                  >
+                    Payload (JSON)
+                  </label>
+                  <Button
+                    icon="data_object"
+                    variant="link"
+                    onClick={handlePrettify}
+                  >
+                    Prettify JSON
+                  </Button>
+                </div>
+                <div className="relative overflow-hidden rounded-lg border border-outline-variant bg-[#020617]">
+                  <div className="absolute inset-y-0 left-0 flex w-8 flex-col items-center border-r border-outline-variant bg-surface-container-highest pt-3 font-code text-[10px] text-on-surface-variant">
+                    <span>1</span>
+                    <span>2</span>
+                    <span>3</span>
+                    <span>4</span>
+                    <span>5</span>
+                    <span>6</span>
+                    <span>7</span>
+                    <span>8</span>
+                  </div>
+                  <textarea
+                    id="payload-json"
+                    spellCheck={false}
+                    value={payloadJson}
+                    onChange={(event) => {
+                      setPayloadJson(event.target.value);
+                      setPayloadError(null);
+                      setPrettifyError(null);
+                    }}
+                    className={`${textareaClassName} pl-11 ${payloadError ? "border-error" : ""}`.trim()}
+                  />
+                </div>
+                {prettifyError ? (
+                  <p className="text-sm text-error">{prettifyError}</p>
+                ) : null}
+                {payloadError ? (
+                  <p className="text-sm text-error">{payloadError}</p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-end gap-3 border-t border-outline-variant pt-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate("/jobs")}
+                  disabled={submitting}
                 >
-                  {"{ } Prettify"}
+                  Cancel
+                </Button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-primary bg-primary px-5 py-2 font-body text-[11px] font-semibold uppercase tracking-technical text-on-primary transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span
+                    className={`material-symbols-outlined text-[18px] ${submitting ? "animate-spin" : ""}`.trim()}
+                  >
+                    {submitting ? "refresh" : "bolt"}
+                  </span>
+                  {submitting ? "Processing..." : "Create Job"}
                 </button>
               </div>
-              {prettifyError && (
-                <p style={styles.fieldError} role="alert">
+            </form>
+          </div>
+        </Panel>
+
+        <div className="space-y-4 xl:col-span-4">
+          <Panel>
+            <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-headline text-[20px] font-semibold text-tertiary text-primary">
+                  Queue Logic
+                </h2>
+                <MockBadge label="Reference Copy" />
+              </div>
+            </div>
+            <div className="space-y-4 px-4 py-4 sm:px-5">
+              {[
+                {
+                  title: "Priority Placement",
+                  body: "Critical priority jobs bypass the wait state and are assigned to the next available worker node immediately.",
+                  color: "bg-primary",
+                },
+                {
+                  title: "Resource Allocation",
+                  body: "Standard jobs are handled via round-robin distribution across Tier-1 clusters.",
+                  color: "bg-secondary",
+                },
+                {
+                  title: "Latency Warning",
+                  body: "Low priority tasks may experience additional warm-up time during peak traffic windows.",
+                  color: "bg-outline",
+                },
+              ].map((item) => (
+                <div key={item.title} className="flex gap-3">
                   <span
-                    className="material-icons"
-                    style={{ fontSize: "0.9rem" }}
-                  >
-                    warning
-                  </span>
-                  {prettifyError}
+                    className={`mt-1 h-2 w-2 rounded-full ${item.color}`}
+                  ></span>
+                  <div className="space-y-1">
+                    <p className="font-body text-sm font-semibold text-on-surface">
+                      {item.title}
+                    </p>
+                    <p className="font-body text-sm leading-6 text-on-surface-variant">
+                      {item.body}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel>
+            <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 sm:px-5">
+              <div>
+                <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                  Engine Health
                 </p>
-              )}
-              {payloadError && (
-                <p id="payload-error" style={styles.fieldError} role="alert">
-                  <span
-                    className="material-icons"
-                    style={{ fontSize: "0.9rem" }}
-                  >
-                    warning
-                  </span>
-                  {payloadError}
-                </p>
-              )}
+                <div className="mt-1 flex items-center gap-2 font-code text-[11px] text-secondary">
+                  <span className="h-2 w-2 rounded-full bg-secondary"></span>
+                  Operational
+                </div>
+              </div>
+              <MockBadge label="Dummy Data" />
             </div>
-
-            {/* Form actions */}
-            <div style={styles.formActions}>
-              <button
-                type="button"
-                style={styles.btnCancel}
-                onClick={handleCancel}
-                disabled={submitting}
-                aria-label="Cancel"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                style={{
-                  ...styles.btnSubmit,
-                  ...(submitting ? styles.btnSubmitDisabled : {}),
-                }}
-                disabled={submitting}
-                aria-label="Dispatch Job"
-              >
-                {submitting ? (
-                  <>
-                    <span
-                      className="material-icons"
-                      style={{
-                        fontSize: "1rem",
-                        animation: "spin 1s linear infinite",
-                      }}
-                    >
-                      autorenew
-                    </span>
-                    Dispatching…
-                  </>
-                ) : (
-                  <>
-                    <span
-                      className="material-icons"
-                      style={{ fontSize: "1rem" }}
-                    >
-                      send
-                    </span>
-                    Dispatch Job
-                  </>
-                )}
-              </button>
+            <div className="space-y-4 px-4 py-4 sm:px-5">
+              <div>
+                <div className="mb-2 flex items-center justify-between font-code text-[12px]">
+                  <span className="text-on-surface-variant">Cluster Load</span>
+                  <span className="text-primary">{ENGINE_CLUSTER_LOAD}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-surface-container-lowest">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: ENGINE_CLUSTER_LOAD }}
+                  ></div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded border border-outline-variant bg-surface-container-lowest p-3">
+                  <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                    Idle Workers
+                  </p>
+                  <p className="mt-2 font-headline text-[24px] font-semibold text-on-surface">
+                    {ENGINE_IDLE_WORKERS}
+                  </p>
+                </div>
+                <div className="rounded border border-outline-variant bg-surface-container-lowest p-3">
+                  <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                    Avg Wait
+                  </p>
+                  <p className="mt-2 font-headline text-[24px] font-semibold text-on-surface">
+                    {ENGINE_AVG_WAIT}
+                  </p>
+                </div>
+              </div>
             </div>
-          </form>
-        </div>
-
-        {/* ---------------------------------------------------------------- */}
-        {/* Right panel — Queue Logic cards + Engine Health (5.8)             */}
-        {/* ---------------------------------------------------------------- */}
-        <div style={styles.rightPanel}>
-          {/* Queue Logic: Priority Placement */}
-          <div style={styles.infoCard}>
-            <div style={styles.infoCardTitle}>
-              <span className="material-icons" style={{ fontSize: "1rem" }}>
-                low_priority
-              </span>
-              Priority Placement
-            </div>
-            <div style={styles.infoCardBody}>
-              Jobs with <strong style={{ color: "#ef4444" }}>Critical</strong>{" "}
-              priority (1) are placed at the head of the queue and preempt all
-              Normal and Low jobs. Use sparingly to avoid starvation of
-              lower-priority work.
-            </div>
-          </div>
-
-          {/* Queue Logic: Resource Allocation */}
-          <div style={styles.infoCard}>
-            <div style={styles.infoCardTitle}>
-              <span className="material-icons" style={{ fontSize: "1rem" }}>
-                memory
-              </span>
-              Resource Allocation
-            </div>
-            <div style={styles.infoCardBody}>
-              The selected{" "}
-              <strong style={{ color: "#0ea5e9" }}>Processor Type</strong>{" "}
-              determines the worker pool your job is routed to. High Memory and
-              GPU workers are limited — over-allocation will cause queueing
-              delays.
-            </div>
-          </div>
-
-          {/* Queue Logic: Latency Warning */}
-          <div style={styles.infoCard}>
-            <div style={styles.infoCardTitle}>
-              <span className="material-icons" style={{ fontSize: "1rem" }}>
-                timer_off
-              </span>
-              Latency Warning
-            </div>
-            <div style={styles.infoCardBody}>
-              Scheduling jobs more than{" "}
-              <strong style={{ color: "#f59e0b" }}>24 hours</strong> in the
-              future may be subject to cluster rebalancing. Verify the Scheduled
-              Start aligns with expected maintenance windows.
-            </div>
-          </div>
-
-          {/* Engine Health widget */}
-          <div style={styles.engineCard}>
-            <div style={styles.engineTitle}>
-              <span className="material-icons" style={{ fontSize: "1rem" }}>
-                monitor_heart
-              </span>
-              Engine Health
-            </div>
-
-            <div style={styles.engineRow}>
-              <span style={styles.engineKey}>Cluster Load</span>
-              <span style={styles.engineValue}>
-                {ENGINE_CLUSTER_LOAD /* DUMMY DATA */}
-              </span>
-            </div>
-
-            <div style={styles.engineRow}>
-              <span style={styles.engineKey}>Idle Workers</span>
-              <span style={styles.engineValue}>
-                {ENGINE_IDLE_WORKERS /* DUMMY DATA */}
-              </span>
-            </div>
-
-            <div style={styles.engineRowLast}>
-              <span style={styles.engineKey}>Avg Wait</span>
-              <span style={styles.engineValue}>
-                {ENGINE_AVG_WAIT /* DUMMY DATA */}
-              </span>
-            </div>
-          </div>
+          </Panel>
         </div>
       </div>
     </div>

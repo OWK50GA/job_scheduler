@@ -4,24 +4,42 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Obsidian Infrastructure semantic colour tokens
         surface: "#051424",
+        "surface-dim": "#051424",
+        "surface-bright": "#2c3a4c",
+        "surface-container-lowest": "#010f1f",
+        "surface-container-low": "#0d1c2d",
         "surface-container": "#0f172a",
         "surface-container-high": "#1e293b",
         "surface-container-highest": "#334155",
-        "surface-container-lowest": "#020c18",
         "on-surface": "#f8fafc",
         "on-surface-variant": "#94a3b8",
         outline: "#475569",
+        "outline-variant": "#1e293b",
         primary: "#0ea5e9",
+        "on-primary": "#ffffff",
         "primary-container": "#0c4a6e",
+        "on-primary-container": "#7dd3fc",
         secondary: "#10b981",
+        "on-secondary": "#ffffff",
+        "secondary-container": "#064e3b",
+        "on-secondary-container": "#6ee7b7",
         error: "#ef4444",
-        "error-container": "#450a0a",
+        "on-error": "#ffffff",
+        "error-container": "#7f1d1d",
+        "on-error-container": "#fca5a5",
       },
       fontFamily: {
-        mono: [
+        body: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        headline: [
           "Geist",
+          "Inter",
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+        ],
+        code: [
+          "JetBrains Mono",
           "ui-monospace",
           "SFMono-Regular",
           "Menlo",
@@ -29,6 +47,12 @@ export default {
           "Consolas",
           "monospace",
         ],
+      },
+      boxShadow: {
+        panel: "0 20px 40px rgba(1, 15, 31, 0.22)",
+      },
+      letterSpacing: {
+        technical: "0.18em",
       },
     },
   },
