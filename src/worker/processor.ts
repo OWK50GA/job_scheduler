@@ -21,10 +21,12 @@ export async function processJob(job: Job) {
         message: "No handler registered for job type",
         meta: { jobType: job.type },
       });
+      
       return await dbClient.markJobDeadLetter(
         job.id,
         "No handler registered for job type",
         0,
+        true // this means we are exhausting retries for this
       );
     }
 

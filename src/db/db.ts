@@ -376,10 +376,11 @@ export class DatabaseClient {
     const [jobResult] = await Promise.all([
       this.pool.query<Job>(
         `UPDATE jobs
-         SET status       = 'completed',
-             result       = $2,
-             completed_at = NOW(),
-             updated_at   = NOW()
+         SET status        = 'completed',
+             result        = $2,
+             completed_at  = NOW(),
+             updated_at    = NOW(),
+             attempt_count = attempt_count + 1
          WHERE id = $1
          RETURNING *`,
         [jobId, JSON.stringify(result)],
@@ -439,6 +440,7 @@ export class DatabaseClient {
     jobId: string,
     error: string,
     durationMs: number,
+    exhaustRetries = false,
   ): Promise<Job> {
     const [jobResult] = await Promise.all([
       this.pool.query<Job>(
@@ -446,7 +448,7 @@ export class DatabaseClient {
          SET status        = 'failed',
              last_error    = $2,
              next_retry_at = NULL,
-             attempt_count = attempt_count + 1,
+             attempt_count = ${exhaustRetries ? `max_retries` :`attempt_count + 1`},
              updated_at    = NOW()
          WHERE id = $1
          RETURNING *`,
@@ -703,5 +705,58 @@ export class DatabaseClient {
     );
 
     return result.rowCount && result.rowCount > 0 ? result.rows[0] : null;
+  }
+
+  /**
+   * Hard-deletes a DLQ job (status=failed AND attempt_count >= max_retries).
+   * CASCADE removes all associated job_attempts and job_logs rows.
+   *
+   * Only operates on DLQ jobs — returns false if the job doesn't exist or
+   * is not in the DLQ (so the caller can distinguish 404 vs 409).
+   *
+   * Returns true if the job was deleted, false if the WHERE condition
+   * didn't match (job not found or not in DLQ).
+   */
+  async purgeJob(jobId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `DELETE FROM jobs
+       WHERE id = $1
+         AND status = 'failed'
+         AND attempt_count >= max_retries`,
+      [jobId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  /**
+   * Returns all attempt records for a job, ordered by attempt number ascending.
+   * Each row contains the attempt number, error message (if any), duration,
+   * and the timestamp when that attempt was made.
+   */
+  async getJobAttempts(jobId: string): Promise<
+    {
+      id: number;
+      job_id: string;
+      attempt_num: number;
+      error: string | null;
+      duration_ms: number | null;
+      attempted_at: Date;
+    }[]
+  > {
+    const result = await this.pool.query<{
+      id: number;
+      job_id: string;
+      attempt_num: number;
+      error: string | null;
+      duration_ms: number | null;
+      attempted_at: Date;
+    }>(
+      `SELECT id, job_id, attempt_num, error, duration_ms, attempted_at
+       FROM   job_attempts
+       WHERE  job_id = $1
+       ORDER BY attempt_num ASC`,
+      [jobId],
+    );
+    return result.rows;
   }
 }

@@ -268,3 +268,79 @@ export async function getJobStats(
     next(err);
   }
 }
+
+export async function purgeJob(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const { success, error, data } = GetSingleJobSchema.safeParse(req.params);
+
+  if (!success) {
+    const issue = error.issues[0];
+    return res.status(400).json({
+      status: "error",
+      message: `${String(issue.path[0])}: ${issue.message}`,
+    });
+  }
+
+  const { id } = data;
+
+  try {
+    // Check existence first so we can distinguish 404 from 409
+    const job = await dbClient.getJob(id);
+
+    if (!job) {
+      throw new AppError(404, `Job with id ${id} does not exist`);
+    }
+
+    const deleted = await dbClient.purgeJob(id);
+
+    if (!deleted) {
+      // Job exists but is not in the DLQ
+      throw new AppError(409, "Job is not in the DLQ — only DLQ jobs can be purged");
+    }
+
+    return res.status(200).json({
+      status: "success",
+      data: { id },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getJobAttempts(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const { success, error, data } = GetSingleJobSchema.safeParse(req.params);
+
+  if (!success) {
+    const issue = error.issues[0];
+    return res.status(400).json({
+      status: "error",
+      message: `${String(issue.path[0])}: ${issue.message}`,
+    });
+  }
+
+  const { id } = data;
+
+  try {
+    const job = await dbClient.getJob(id);
+
+    if (!job) {
+      throw new AppError(404, `Job with id ${id} does not exist`);
+    }
+
+    const attempts = await dbClient.getJobAttempts(id);
+
+    return res.status(200).json({
+      status: "success",
+      data: attempts,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
