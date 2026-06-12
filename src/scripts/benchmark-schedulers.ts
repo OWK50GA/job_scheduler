@@ -176,7 +176,9 @@ console.log(`  Repetitions per measurement: ${REPS} (median reported)\n`);
 const allResults: BenchmarkResult[] = [];
 
 for (const size of SIZES) {
-  process.stdout.write(`  Generating ${size.toLocaleString()} synthetic jobs... `);
+  process.stdout.write(
+    `  Generating ${size.toLocaleString()} synthetic jobs... `,
+  );
   const jobs = generateJobs(size);
   console.log("done");
 
@@ -224,9 +226,15 @@ console.log("──────────────────────�
 
 console.log("  Notes:");
 console.log("  ─ insert: time to insert N jobs into an empty scheduler");
-console.log("  ─ drain:  time to pop() all N jobs from a fully loaded scheduler");
+console.log(
+  "  ─ drain:  time to pop() all N jobs from a fully loaded scheduler",
+);
 console.log("  ─ Same job set used for both schedulers at each size");
 console.log("  ─ Both use identical score function (priority + aging bonus)");
-console.log("  ─ MinHeap operates on a contiguous array (better cache locality)");
-console.log("  ─ SkipList uses pointer-linked nodes (worse cache, but O(1) peek");
+console.log(
+  "  ─ MinHeap operates on a contiguous array (better cache locality)",
+);
+console.log(
+  "  ─ SkipList uses pointer-linked nodes (worse cache, but O(1) peek",
+);
 console.log("    and supports in-order traversal without full drain)\n");
