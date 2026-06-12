@@ -1,6 +1,7 @@
 import Redis from "ioredis";
 import { logger } from "../logger";
 import { SCHEDULER_CHANNEL, SchedulerEvent } from "./types";
+import { envConfig } from "../config/env";
 
 // ---------------------------------------------------------------------------
 // SSE client registry
@@ -38,7 +39,7 @@ let sub: Redis | null = null;
 export function startSubscriber(): void {
   if (sub) return;
 
-  const url = process.env.REDIS_URL;
+  const url = envConfig.REDIS_URL;
   if (!url) throw new Error("REDIS_URL is not set");
 
   sub = new Redis(url, {

@@ -1,6 +1,7 @@
 import Redis from "ioredis";
 import { logger } from "../logger";
 import { SCHEDULER_CHANNEL, SchedulerEvent } from "./types";
+import { envConfig } from "../config/env";
 
 // ---------------------------------------------------------------------------
 // Singleton publisher client
@@ -10,7 +11,7 @@ let pub: Redis | null = null;
 
 function getPublisher(): Redis {
   if (!pub) {
-    const url = process.env.REDIS_URL;
+    const url = envConfig.REDIS_URL;
     if (!url) throw new Error("REDIS_URL is not set");
 
     pub = new Redis(url, {
