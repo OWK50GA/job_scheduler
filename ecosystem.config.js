@@ -11,6 +11,6 @@ module.exports = {
       cwd: "/home/ubuntu/job_scheduler",
       script: "npm",
       args: "run start:worker",
-    }
-  ]
-}
+    },
+  ],
+};

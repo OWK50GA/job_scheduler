@@ -14,14 +14,14 @@ const baseClasses =
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "border-primary bg-primary text-on-primary hover:brightness-110 active:brightness-95",
+    "border-primary bg-primary text-on-primary hover:bg-sky-200 hover:text-black active:brightness-95",
   secondary:
-    "border-outline-variant bg-surface-container-low text-on-surface hover:bg-surface-container-high",
+    "border-outline-variant bg-surface-container-low hover:bg-sky-200 hover:text-black text-on-surface hover:bg-surface-container-high",
   ghost:
     "border-outline-variant bg-transparent text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface",
   danger:
-    "border-error bg-error text-on-error hover:brightness-110 active:brightness-95",
-  link: "border-transparent bg-transparent px-0 py-0 text-primary hover:text-on-surface",
+    "border-error bg-error text-on-error hover:bg-red-600 active:brightness-95",
+  link: "border-transparent bg-transparent px-0 py-0 text-primary hover:text-blue-400",
 };
 
 export function Button({

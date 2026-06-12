@@ -169,6 +169,7 @@ export default function DLQOverview() {
                   tick={{ fill: "#94a3b8", fontSize: 10 }}
                 />
                 <Tooltip
+                  cursor={{ fill: "rgba(14,165,233,0.08)" }}
                   contentStyle={{
                     backgroundColor: "#0f172a",
                     border: "1px solid #1e293b",
@@ -204,8 +205,8 @@ export default function DLQOverview() {
               className={[
                 "rounded border px-3 py-1.5 font-body text-[11px] font-semibold uppercase tracking-technical transition",
                 activeTab === "ALL"
-                  ? "border-primary bg-primary text-on-primary"
-                  : "border-outline-variant bg-surface-container-low text-on-surface-variant hover:text-on-surface",
+                  ? "border-sky-300 bg-sky-200 text-sky-900 shadow-[0_0_0_3px_rgba(186,230,253,0.35)]"
+                  : "border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-primary/50 hover:bg-primary/10 hover:text-primary",
               ].join(" ")}
             >
               All
@@ -219,8 +220,8 @@ export default function DLQOverview() {
               className={[
                 "rounded border px-3 py-1.5 font-body text-[11px] font-semibold uppercase tracking-technical transition",
                 activeTab === "CRITICAL_ONLY"
-                  ? "border-primary bg-primary text-on-primary"
-                  : "border-outline-variant bg-surface-container-low text-on-surface-variant hover:text-on-surface",
+                  ? "border-sky-300 bg-sky-200 text-sky-900 shadow-[0_0_0_3px_rgba(186,230,253,0.35)]"
+                  : "border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-primary/50 hover:bg-primary/10 hover:text-primary",
               ].join(" ")}
             >
               Priority 1 Only
@@ -263,7 +264,7 @@ export default function DLQOverview() {
                 pageJobs.map((job) => (
                   <tr
                     key={job.id}
-                    className="transition hover:bg-surface-container-highest/20"
+                    className="group cursor-pointer border-l-2 border-l-transparent transition hover:border-l-primary hover:bg-slate-600"
                   >
                     <td className="px-4 py-3 font-code text-[12px] text-primary">
                       {job.id.slice(0, 8)}…
