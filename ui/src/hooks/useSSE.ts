@@ -1,0 +1,124 @@
+import { useEffect, useRef, useState } from "react";
+import type { SSEEvent, Job } from "../types";
+
+const INTERVAL_DEFAULT = 3000;
+const INTERVAL_MIN = 1000;
+const INTERVAL_MAX = 60000;
+
+function clampInterval(ms: number): number {
+  return Math.min(Math.max(ms, INTERVAL_MIN), INTERVAL_MAX);
+}
+
+// DUMMY DATA
+const MOCK_JOB: Job = {
+  id: "job-mock-0001",
+  type: "ASYNC_TASK",
+  payload: { task: "send-report", recipient: "ops@example.com" },
+  status: "processing",
+  priority: 2,
+  attempt_count: 1,
+  max_retries: 3,
+  next_retry_at: null,
+  scheduled_at: new Date().toISOString(),
+  recur_interval: null,
+  last_error: null,
+  result: null,
+  started_at: new Date().toISOString(),
+  completed_at: null,
+  cancelled_at: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
+
+// DUMMY DATA
+const MOCK_STATUSES: Job["status"][] = [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+];
+
+function buildMockEvent(): SSEEvent {
+  // DUMMY DATA
+  const status =
+    MOCK_STATUSES[Math.floor(Math.random() * MOCK_STATUSES.length)];
+  return {
+    type: "job.updated",
+    payload: {
+      ...MOCK_JOB,
+      status,
+      updated_at: new Date().toISOString(),
+    },
+  };
+}
+
+export function useSSE(options: { mockMode: boolean; intervalMs?: number }): {
+  data: SSEEvent | null;
+  connected: boolean;
+} {
+  const intervalMs = clampInterval(options.intervalMs ?? INTERVAL_DEFAULT);
+
+  const [data, setData] = useState<SSEEvent | null>(null);
+  const [connected, setConnected] = useState(false);
+
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  useEffect(() => {
+    if (options.mockMode) {
+      setConnected(true);
+
+      intervalRef.current = setInterval(() => {
+        setData(buildMockEvent());
+      }, intervalMs);
+    } else {
+      function connect() {
+        const es = new EventSource("/api/jobs/stream");
+        eventSourceRef.current = es;
+
+        es.onopen = () => {
+          setConnected(true);
+        };
+
+        es.onmessage = (event: MessageEvent) => {
+          try {
+            const parsed = JSON.parse(event.data as string) as SSEEvent;
+            setData(parsed);
+          } catch {
+            // ignore malformed messages
+          }
+        };
+
+        es.onerror = () => {
+          setConnected(false);
+          es.close();
+          eventSourceRef.current = null;
+
+          timeoutRef.current = setTimeout(() => {
+            connect();
+          }, intervalMs);
+        };
+      }
+
+      connect();
+    }
+
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (eventSourceRef.current !== null) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, [options.mockMode, intervalMs]);
+
+  return { data, connected };
+}
