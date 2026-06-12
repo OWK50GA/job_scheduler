@@ -15,7 +15,7 @@ const options: Options = {
         description: "Development server",
       },
       {
-        url: `https://${process.env.PRODUCTION_HOST ?? "https://hngtask1wilfrid.mooo.com"}/api/v1`,
+        url: `https://${process.env.PRODUCTION_HOST ?? "hngtask1wilfrid.mooo.com"}/api/v1`,
         description: "Production server",
       },
     ],
