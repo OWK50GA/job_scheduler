@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "../components/shared/Button";
 import { Panel } from "../components/shared/Panel";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
-import { useSchedulerEvent } from "../context/SchedulerEvents";
+import { useSchedulerEvent } from "../context/useSchedulerEvent";
 import { getJob, getJobAttempts, purgeJob, retryJob } from "../services/api";
 import type { Job, JobAttempt } from "../types";
 
@@ -13,6 +13,7 @@ export default function DLQDetail() {
 
   const [job, setJob] = useState<Job | null>(null);
   const [attempts, setAttempts] = useState<JobAttempt[]>([]);
+  // Start in loading state; the effect below resolves it.
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -29,18 +30,24 @@ export default function DLQDetail() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
+    let cancelled = false;
     Promise.all([getJob(id), getJobAttempts(id)])
       .then(([jobData, attemptsData]) => {
+        if (cancelled) return;
         setJob(jobData);
         setAttempts(attemptsData);
+        setLoading(false);
       })
-      .catch((err: unknown) =>
+      .catch((err: unknown) => {
+        if (cancelled) return;
         setFetchError(
           err instanceof Error ? err.message : "Failed to load job",
-        ),
-      )
-      .finally(() => setLoading(false));
+        );
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   // ── SSE — minimal: only watch this specific job ───────────────────────

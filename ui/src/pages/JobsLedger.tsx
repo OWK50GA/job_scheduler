@@ -6,7 +6,7 @@ import { Pagination } from "../components/shared/Pagination";
 import { Panel } from "../components/shared/Panel";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { StatusBadge } from "../components/shared/StatusBadge";
-import { useSchedulerEvent } from "../context/SchedulerEvents";
+import { useSchedulerEvent } from "../context/useSchedulerEvent";
 import { cancelJob, listJobs, retryJob } from "../services/api";
 import type { Job, JobStatus } from "../types";
 
@@ -55,24 +55,33 @@ export default function JobsLedger() {
   // ── Client-side pagination ────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Fetch up to 50 at a time (backend max). For most deployments this
-      // covers the entire queue; extend to multi-page fetch if needed.
-      const res = await listJobs({ limit: 50, page: 1 });
-      setAllJobs(res.data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load jobs");
-    } finally {
-      setLoading(false);
-    }
+  // Increment to re-trigger the fetch effect (used by Refresh button)
+  const [fetchTick, setFetchTick] = useState(0);
+
+  const load = useCallback(() => {
+    setFetchTick((t) => t + 1);
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    // Fetch up to 50 at a time (backend max). For most deployments this
+    // covers the entire queue; extend to multi-page fetch if needed.
+    listJobs({ limit: 50, page: 1 })
+      .then((res) => {
+        if (cancelled) return;
+        setAllJobs(res.data);
+        setError(null);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load jobs");
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchTick]);
 
   // ── Client-side filtering ─────────────────────────────────────────────
   const filteredJobs = useMemo(() => {

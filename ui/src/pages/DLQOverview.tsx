@@ -14,7 +14,7 @@ import { PageHeader } from "../components/shared/PageHeader";
 import { Pagination } from "../components/shared/Pagination";
 import { Panel } from "../components/shared/Panel";
 import { StatCard } from "../components/shared/StatCard";
-import { useSchedulerEvent } from "../context/SchedulerEvents";
+import { useSchedulerEvent } from "../context/useSchedulerEvent";
 import { getJobStats, listDLQJobs } from "../services/api";
 import type { Job, JobStats } from "../types";
 
@@ -30,29 +30,35 @@ export default function DLQOverview() {
   // All DLQ jobs fetched at once; pagination is client-side
   const [allJobs, setAllJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<JobStats | null>(null);
+  // Start in loading state; the initial fetch resolves it.
   const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<"ALL" | "CRITICAL_ONLY">("ALL");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Fetch up to 50 DLQ jobs + current stats in parallel
-      const [dlqRes, statsRes] = await Promise.all([
-        listDLQJobs(1, 50),
-        getJobStats(),
-      ]);
-      setAllJobs(dlqRes.data);
-      setStats(statsRes);
-    } finally {
-      setLoading(false);
-    }
+  // Increment to trigger a re-fetch from the Refresh button
+  const [fetchTick, setFetchTick] = useState(0);
+
+  const load = useCallback(() => {
+    setFetchTick((t) => t + 1);
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    Promise.all([listDLQJobs(1, 50), getJobStats()])
+      .then(([dlqRes, statsRes]) => {
+        if (cancelled) return;
+        setAllJobs(dlqRes.data);
+        setStats(statsRes);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchTick]);
 
   // ── SSE ───────────────────────────────────────────────────────────────────
   // New DLQ entry → prepend to list

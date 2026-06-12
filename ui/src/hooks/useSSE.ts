@@ -52,7 +52,11 @@ function buildMockEvent(): SSEEvent {
   };
 }
 
-export function useSSE(options: {
+export function useSSE({
+  mockMode,
+  intervalMs: intervalMsRaw,
+  onEvent,
+}: {
   mockMode: boolean;
   intervalMs?: number;
   onEvent?: (event: SSEEvent) => void;
@@ -60,7 +64,7 @@ export function useSSE(options: {
   data: SSEEvent | null;
   connected: boolean;
 } {
-  const intervalMs = clampInterval(options.intervalMs ?? INTERVAL_DEFAULT);
+  const intervalMs = clampInterval(intervalMsRaw ?? INTERVAL_DEFAULT);
 
   const [data, setData] = useState<SSEEvent | null>(null);
   const [serverConnected, setServerConnected] = useState(false);
@@ -69,12 +73,19 @@ export function useSSE(options: {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  // Stable ref for onEvent so it doesn't force effect re-runs.
+  // Assigned inside a layout effect to avoid the "ref write during render" lint rule.
+  const onEventRef = useRef(onEvent);
   useEffect(() => {
-    if (options.mockMode) {
+    onEventRef.current = onEvent;
+  });
+
+  useEffect(() => {
+    if (mockMode) {
       intervalRef.current = setInterval(() => {
         const nextEvent = buildMockEvent();
         setData(nextEvent);
-        options.onEvent?.(nextEvent);
+        onEventRef.current?.(nextEvent);
       }, intervalMs);
     } else {
       function connect() {
@@ -89,7 +100,7 @@ export function useSSE(options: {
           try {
             const parsed = JSON.parse(event.data as string) as SSEEvent;
             setData(parsed);
-            options.onEvent?.(parsed);
+            onEventRef.current?.(parsed);
           } catch {
             // ignore malformed messages
           }
@@ -123,7 +134,7 @@ export function useSSE(options: {
         eventSourceRef.current = null;
       }
     };
-  }, [options.mockMode, intervalMs, options.onEvent]);
+  }, [mockMode, intervalMs]);
 
-  return { data, connected: options.mockMode || serverConnected };
+  return { data, connected: mockMode || serverConnected };
 }
