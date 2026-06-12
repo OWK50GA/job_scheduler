@@ -51,9 +51,20 @@ export type SSEEvent = {
   payload: Job;
 };
 
+export type JobAttempt = {
+  id: number;
+  job_id: string;
+  attempt_num: number;
+  error: string | null;
+  duration_ms: number | null;
+  attempted_at: string; // ISO 8601
+};
+
 export type CreateJobInput = {
   type: string;
   payload: Record<string, unknown>;
   priority: 1 | 2 | 3;
   scheduled_at?: number; // Unix ms timestamp (optional)
+  recur_interval?: "every_1_minute" | "every_5_minutes" | "every_1_hour";
+  depends_on?: string; // UUID of a job this one depends on
 };
