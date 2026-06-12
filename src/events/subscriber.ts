@@ -42,7 +42,7 @@ export function startSubscriber(): void {
   if (!url) throw new Error("REDIS_URL is not set");
 
   sub = new Redis(url, {
-    enableReadyCheck: false,   // ← prevents INFO on a subscribe connection
+    enableReadyCheck: false, // ← prevents INFO on a subscribe connection
     retryStrategy: (times) => Math.min(times * 200, 10_000),
   });
 
@@ -59,7 +59,10 @@ export function startSubscriber(): void {
       if (err) {
         logger.error({ err }, "Failed to subscribe to scheduler channel");
       } else {
-        logger.info({ channel: SCHEDULER_CHANNEL }, "Subscribed to scheduler channel");
+        logger.info(
+          { channel: SCHEDULER_CHANNEL },
+          "Subscribed to scheduler channel",
+        );
       }
     });
   });

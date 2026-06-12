@@ -15,11 +15,11 @@ export type SchedulerEventType =
   | "job.created"
   | "job.started"
   | "job.completed"
-  | "job.failed"       // exhausted retries → DLQ
+  | "job.failed" // exhausted retries → DLQ
   | "job.retry_scheduled"
   | "job.cancelled"
-  | "job.dlq_entry"    // alias for job.failed, consumed by DLQ panels
-  | "stats.updated";   // fires after any status transition
+  | "job.dlq_entry" // alias for job.failed, consumed by DLQ panels
+  | "stats.updated"; // fires after any status transition
 
 // ---------------------------------------------------------------------------
 // Per-event payload shapes

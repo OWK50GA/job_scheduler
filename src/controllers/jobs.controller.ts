@@ -62,9 +62,14 @@ export async function createJob(
     publish({ type: "job.created", payload: { job } });
 
     // Stats change — push updated counts to the dashboard
-    dbClient.getJobStats().then((stats) => {
-      publish({ type: "stats.updated", payload: { stats } });
-    }).catch(() => { /* non-critical */ });
+    dbClient
+      .getJobStats()
+      .then((stats) => {
+        publish({ type: "stats.updated", payload: { stats } });
+      })
+      .catch(() => {
+        /* non-critical */
+      });
 
     return res.status(201).json({
       status: "success",
@@ -211,9 +216,14 @@ export async function cancelJob(
     }
 
     publish({ type: "job.cancelled", payload: { job: cancelledJob } });
-    dbClient.getJobStats().then((stats) => {
-      publish({ type: "stats.updated", payload: { stats } });
-    }).catch(() => { /* non-critical */ });
+    dbClient
+      .getJobStats()
+      .then((stats) => {
+        publish({ type: "stats.updated", payload: { stats } });
+      })
+      .catch(() => {
+        /* non-critical */
+      });
 
     return res.status(200).json({
       status: "success",
@@ -259,9 +269,14 @@ export async function manualRetryJob(
 
     // Re-queued from DLQ — treat as a new job.created so the stream reflects it
     publish({ type: "job.created", payload: { job: retriedJob } });
-    dbClient.getJobStats().then((stats) => {
-      publish({ type: "stats.updated", payload: { stats } });
-    }).catch(() => { /* non-critical */ });
+    dbClient
+      .getJobStats()
+      .then((stats) => {
+        publish({ type: "stats.updated", payload: { stats } });
+      })
+      .catch(() => {
+        /* non-critical */
+      });
 
     return res.status(200).json({
       status: "success",

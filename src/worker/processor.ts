@@ -50,8 +50,14 @@ export async function processJob(job: Job) {
         0,
         true,
       );
-      publish({ type: "job.failed", payload: { job: dead, error: "No handler registered for job type" } });
-      publish({ type: "job.dlq_entry", payload: { job: dead, error: "No handler registered for job type" } });
+      publish({
+        type: "job.failed",
+        payload: { job: dead, error: "No handler registered for job type" },
+      });
+      publish({
+        type: "job.dlq_entry",
+        payload: { job: dead, error: "No handler registered for job type" },
+      });
       void publishStats();
       return;
     }
@@ -67,9 +73,19 @@ export async function processJob(job: Job) {
           event: "job_failed",
           message: "Job not found on re-fetch — sending to DLQ",
         });
-        const dead = await dbClient.markJobDeadLetter(job.id, "Failed to confirm job status", 0);
-        publish({ type: "job.failed", payload: { job: dead, error: "Failed to confirm job status" } });
-        publish({ type: "job.dlq_entry", payload: { job: dead, error: "Failed to confirm job status" } });
+        const dead = await dbClient.markJobDeadLetter(
+          job.id,
+          "Failed to confirm job status",
+          0,
+        );
+        publish({
+          type: "job.failed",
+          payload: { job: dead, error: "Failed to confirm job status" },
+        });
+        publish({
+          type: "job.dlq_entry",
+          payload: { job: dead, error: "Failed to confirm job status" },
+        });
         void publishStats();
         return;
       } else {
@@ -171,8 +187,14 @@ export async function processJob(job: Job) {
           handlerResult.error!,
           handlerResult.durationMs,
         );
-        publish({ type: "job.failed", payload: { job: dead, error: handlerResult.error! } });
-        publish({ type: "job.dlq_entry", payload: { job: dead, error: handlerResult.error! } });
+        publish({
+          type: "job.failed",
+          payload: { job: dead, error: handlerResult.error! },
+        });
+        publish({
+          type: "job.dlq_entry",
+          payload: { job: dead, error: handlerResult.error! },
+        });
         void publishStats();
         return;
       } else {
@@ -240,8 +262,14 @@ export async function processJob(job: Job) {
         meta: { error: errorMessage },
       });
       const dead = await dbClient.markJobDeadLetter(job.id, errorMessage, 0);
-      publish({ type: "job.failed", payload: { job: dead, error: errorMessage } });
-      publish({ type: "job.dlq_entry", payload: { job: dead, error: errorMessage } });
+      publish({
+        type: "job.failed",
+        payload: { job: dead, error: errorMessage },
+      });
+      publish({
+        type: "job.dlq_entry",
+        payload: { job: dead, error: errorMessage },
+      });
       void publishStats();
       return;
     } else {

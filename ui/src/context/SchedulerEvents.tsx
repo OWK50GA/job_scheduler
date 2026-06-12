@@ -97,10 +97,16 @@ export function SchedulerEventsProvider({ children }: { children: ReactNode }) {
       function onNamedEvent(e: MessageEvent) {
         try {
           const event = JSON.parse(e.data as string) as SchedulerEvent;
-          const listeners = listenersRef.current.get(event.type as SSEEventType);
+          const listeners = listenersRef.current.get(
+            event.type as SSEEventType,
+          );
           if (listeners) {
             for (const fn of listeners) {
-              try { fn(event); } catch { /* listener errors are isolated */ }
+              try {
+                fn(event);
+              } catch {
+                /* listener errors are isolated */
+              }
             }
           }
         } catch {

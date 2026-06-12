@@ -60,14 +60,32 @@ export type SSEEventType =
 // Per-event payload shapes — mirror backend src/events/types.ts
 // ---------------------------------------------------------------------------
 
-export type JobCreatedEvent    = { type: "job.created";          payload: { job: Job } };
-export type JobStartedEvent    = { type: "job.started";          payload: { job: Job } };
-export type JobCompletedEvent  = { type: "job.completed";        payload: { job: Job } };
-export type JobFailedEvent     = { type: "job.failed";           payload: { job: Job; error: string } };
-export type JobRetryEvent      = { type: "job.retry_scheduled";  payload: { job: Job; error: string; attempt: number; nextRetryAt: string } };
-export type JobCancelledEvent  = { type: "job.cancelled";        payload: { job: Job } };
-export type JobDlqEntryEvent   = { type: "job.dlq_entry";        payload: { job: Job; error: string } };
-export type StatsUpdatedEvent  = { type: "stats.updated";        payload: { stats: JobStats } };
+export type JobCreatedEvent = { type: "job.created"; payload: { job: Job } };
+export type JobStartedEvent = { type: "job.started"; payload: { job: Job } };
+export type JobCompletedEvent = {
+  type: "job.completed";
+  payload: { job: Job };
+};
+export type JobFailedEvent = {
+  type: "job.failed";
+  payload: { job: Job; error: string };
+};
+export type JobRetryEvent = {
+  type: "job.retry_scheduled";
+  payload: { job: Job; error: string; attempt: number; nextRetryAt: string };
+};
+export type JobCancelledEvent = {
+  type: "job.cancelled";
+  payload: { job: Job };
+};
+export type JobDlqEntryEvent = {
+  type: "job.dlq_entry";
+  payload: { job: Job; error: string };
+};
+export type StatsUpdatedEvent = {
+  type: "stats.updated";
+  payload: { stats: JobStats };
+};
 
 /** Discriminated union of every event the SSE stream can carry. */
 export type SchedulerEvent =

@@ -121,12 +121,30 @@ export default function JobsLedger() {
     });
   }, []);
 
-  useSchedulerEvent("job.created",          useCallback((e) => patchJob(e.payload.job), [patchJob]));
-  useSchedulerEvent("job.started",          useCallback((e) => patchJob(e.payload.job), [patchJob]));
-  useSchedulerEvent("job.completed",        useCallback((e) => patchJob(e.payload.job), [patchJob]));
-  useSchedulerEvent("job.failed",           useCallback((e) => patchJob(e.payload.job), [patchJob]));
-  useSchedulerEvent("job.retry_scheduled",  useCallback((e) => patchJob(e.payload.job), [patchJob]));
-  useSchedulerEvent("job.cancelled",        useCallback((e) => patchJob(e.payload.job), [patchJob]));
+  useSchedulerEvent(
+    "job.created",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
+  useSchedulerEvent(
+    "job.started",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
+  useSchedulerEvent(
+    "job.completed",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
+  useSchedulerEvent(
+    "job.failed",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
+  useSchedulerEvent(
+    "job.retry_scheduled",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
+  useSchedulerEvent(
+    "job.cancelled",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
 
   // ── Actions ───────────────────────────────────────────────────────────
   async function handleRetry(jobId: string) {

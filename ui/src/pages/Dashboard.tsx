@@ -93,9 +93,12 @@ export default function Dashboard() {
   const LOG_BUFFER_SIZE = 12;
 
   // stats.updated → refresh stat cards live
-  useSchedulerEvent("stats.updated", useCallback((e) => {
-    setStats(e.payload.stats);
-  }, []));
+  useSchedulerEvent(
+    "stats.updated",
+    useCallback((e) => {
+      setStats(e.payload.stats);
+    }, []),
+  );
 
   // job.created / job.started / job.completed / job.cancelled → patch active jobs table
   const patchJob = useCallback((job: Job) => {
@@ -106,29 +109,135 @@ export default function Dashboard() {
     });
   }, []);
 
-  useSchedulerEvent("job.created",   useCallback((e) => { patchJob(e.payload.job); }, [patchJob]));
-  useSchedulerEvent("job.started",   useCallback((e) => { patchJob(e.payload.job); }, [patchJob]));
-  useSchedulerEvent("job.completed", useCallback((e) => { patchJob(e.payload.job); }, [patchJob]));
-  useSchedulerEvent("job.cancelled", useCallback((e) => { patchJob(e.payload.job); }, [patchJob]));
-  useSchedulerEvent("job.failed",    useCallback((e) => { patchJob(e.payload.job); }, [patchJob]));
+  useSchedulerEvent(
+    "job.created",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.started",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.completed",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.cancelled",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.failed",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
 
   // job.dlq_entry → update the DLQ insight panel
-  useSchedulerEvent("job.dlq_entry", useCallback((e) => {
-    setDlqJob(e.payload.job);
-  }, []));
+  useSchedulerEvent(
+    "job.dlq_entry",
+    useCallback((e) => {
+      setDlqJob(e.payload.job);
+    }, []),
+  );
 
   // All lifecycle events → append a log line
   const appendLog = useCallback((line: string) => {
     setLogs((prev) => [line, ...prev].slice(0, LOG_BUFFER_SIZE));
   }, []);
 
-  useSchedulerEvent("job.created",         useCallback((e) => appendLog(`[${new Date().toISOString()}] INFO  job.created: ${e.payload.job.id} (${e.payload.job.type})`), [appendLog]));
-  useSchedulerEvent("job.started",         useCallback((e) => appendLog(`[${new Date().toISOString()}] INFO  job.started: ${e.payload.job.id}`), [appendLog]));
-  useSchedulerEvent("job.completed",       useCallback((e) => appendLog(`[${new Date().toISOString()}] INFO  job.completed: ${e.payload.job.id}`), [appendLog]));
-  useSchedulerEvent("job.failed",          useCallback((e) => appendLog(`[${new Date().toISOString()}] WARN  job.failed: ${e.payload.job.id} — ${e.payload.error}`), [appendLog]));
-  useSchedulerEvent("job.retry_scheduled", useCallback((e) => appendLog(`[${new Date().toISOString()}] INFO  job.retry: ${e.payload.job.id} attempt ${e.payload.attempt}`), [appendLog]));
-  useSchedulerEvent("job.cancelled",       useCallback((e) => appendLog(`[${new Date().toISOString()}] INFO  job.cancelled: ${e.payload.job.id}`), [appendLog]));
-  useSchedulerEvent("job.dlq_entry",       useCallback((e) => appendLog(`[${new Date().toISOString()}] ERROR job.dlq_entry: ${e.payload.job.id} — ${e.payload.error}`), [appendLog]));
+  useSchedulerEvent(
+    "job.created",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.created: ${e.payload.job.id} (${e.payload.job.type})`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.started",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.started: ${e.payload.job.id}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.completed",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.completed: ${e.payload.job.id}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.failed",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] WARN  job.failed: ${e.payload.job.id} — ${e.payload.error}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.retry_scheduled",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.retry: ${e.payload.job.id} attempt ${e.payload.attempt}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.cancelled",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.cancelled: ${e.payload.job.id}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.dlq_entry",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] ERROR job.dlq_entry: ${e.payload.job.id} — ${e.payload.error}`,
+        ),
+      [appendLog],
+    ),
+  );
 
   // ── Derived values ───────────────────────────────────────────────────────
   const displayJobs =
@@ -151,7 +260,9 @@ export default function Dashboard() {
                 : "border-error/40 bg-error/10 text-error",
             ].join(" ")}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-secondary" : "bg-error"}`} />
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-secondary" : "bg-error"}`}
+            />
             {connected ? "SSE Connected" : "SSE Reconnecting"}
           </span>
         }
@@ -470,7 +581,9 @@ export default function Dashboard() {
                 : "border-outline-variant bg-surface-container-low text-on-surface-variant",
             ].join(" ")}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-primary" : "bg-outline"}`} />
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-primary" : "bg-outline"}`}
+            />
             {connected ? "Live" : "Disconnected"}
           </span>
         </div>

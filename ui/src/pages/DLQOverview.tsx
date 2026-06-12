@@ -56,29 +56,39 @@ export default function DLQOverview() {
 
   // ── SSE ───────────────────────────────────────────────────────────────────
   // New DLQ entry → prepend to list
-  useSchedulerEvent("job.dlq_entry", useCallback((e) => {
-    setAllJobs((prev) => {
-      // Avoid duplicates if already present
-      if (prev.some((j) => j.id === e.payload.job.id)) return prev;
-      return [e.payload.job, ...prev];
-    });
-  }, []));
+  useSchedulerEvent(
+    "job.dlq_entry",
+    useCallback((e) => {
+      setAllJobs((prev) => {
+        // Avoid duplicates if already present
+        if (prev.some((j) => j.id === e.payload.job.id)) return prev;
+        return [e.payload.job, ...prev];
+      });
+    }, []),
+  );
 
   // Job re-queued from DLQ (manual retry emits job.created) → remove from list
-  useSchedulerEvent("job.created", useCallback((e) => {
-    setAllJobs((prev) => prev.filter((j) => j.id !== e.payload.job.id));
-  }, []));
+  useSchedulerEvent(
+    "job.created",
+    useCallback((e) => {
+      setAllJobs((prev) => prev.filter((j) => j.id !== e.payload.job.id));
+    }, []),
+  );
 
   // Stats update → refresh counters
-  useSchedulerEvent("stats.updated", useCallback((e) => {
-    setStats(e.payload.stats);
-  }, []));
+  useSchedulerEvent(
+    "stats.updated",
+    useCallback((e) => {
+      setStats(e.payload.stats);
+    }, []),
+  );
 
   // ── Derived state ─────────────────────────────────────────────────────────
-  const filteredJobs = useMemo(() =>
-    activeTab === "CRITICAL_ONLY"
-      ? allJobs.filter((j) => j.priority === 1)
-      : allJobs,
+  const filteredJobs = useMemo(
+    () =>
+      activeTab === "CRITICAL_ONLY"
+        ? allJobs.filter((j) => j.priority === 1)
+        : allJobs,
     [allJobs, activeTab],
   );
 
@@ -105,11 +115,7 @@ export default function DLQOverview() {
         title="Dead Letter Queue"
         description="Jobs that have exhausted all retry attempts. Investigate the error, fix the root cause, then retry or purge."
         actions={
-          <Button
-            icon="refresh"
-            variant="secondary"
-            onClick={load}
-          >
+          <Button icon="refresh" variant="secondary" onClick={load}>
             Refresh
           </Button>
         }
@@ -178,7 +184,8 @@ export default function DLQOverview() {
               Investigation Queue
             </h2>
             <p className="font-body text-sm text-on-surface-variant">
-              {filteredJobs.length} job{filteredJobs.length !== 1 ? "s" : ""} awaiting investigation
+              {filteredJobs.length} job{filteredJobs.length !== 1 ? "s" : ""}{" "}
+              awaiting investigation
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -290,7 +297,8 @@ export default function DLQOverview() {
         <div className="flex flex-col gap-3 border-t border-outline-variant bg-surface-container-low px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <span className="font-body text-sm text-on-surface-variant">
             Showing {filteredJobs.length === 0 ? 0 : pageStart + 1}–
-            {Math.min(pageStart + PAGE_SIZE, filteredJobs.length)} of {filteredJobs.length}
+            {Math.min(pageStart + PAGE_SIZE, filteredJobs.length)} of{" "}
+            {filteredJobs.length}
           </span>
           <Pagination
             currentPage={safeCurrentPage}
