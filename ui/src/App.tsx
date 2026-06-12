@@ -6,7 +6,7 @@ import JobsLedger from "./pages/JobsLedger";
 import CreateJob from "./pages/CreateJob";
 import DLQOverview from "./pages/DLQOverview";
 import DLQDetail from "./pages/DLQDetail";
-import Settings from "./pages/Settings";
+// import Settings from "./pages/Settings";
 
 function App() {
   return (
@@ -18,7 +18,7 @@ function App() {
           <Route path="/jobs/new" element={<CreateJob />} />
           <Route path="/jobs/dlq" element={<DLQOverview />} />
           <Route path="/jobs/dlq/:id" element={<DLQDetail />} />
-          <Route path="/settings" element={<Settings />} />
+          {/* <Route path="/settings" element={<Settings />} /> */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

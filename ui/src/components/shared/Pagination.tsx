@@ -6,7 +6,7 @@ interface PaginationProps {
 }
 
 const buttonClassName =
-  "inline-flex h-8 w-8 items-center justify-center rounded border border-outline-variant bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-8 w-8 items-center justify-center rounded border border-outline-variant bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-40";
 
 export function Pagination({
   currentPage,

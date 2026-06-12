@@ -55,6 +55,35 @@
     font: inherit;
   }
 
+  /* ── Select: force dark rendering so the OS popup respects our palette ── */
+  select {
+    color-scheme: dark;
+    cursor: pointer;
+    background-image: none; /* let Tailwind/our CSS control appearance */
+  }
+
+  /* Style each option so the popup list matches the dark theme */
+  select option {
+    background-color: var(--color-surface-container);
+    color: var(--color-on-surface);
+    padding: 6px 12px;
+  }
+
+  select option:hover,
+  select option:focus,
+  select option:checked {
+    background-color: var(--color-primary-container);
+    color: var(--color-on-surface);
+  }
+
+  /* ── Buttons and other interactive elements: always show pointer + transition ── */
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  label[for],
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+
   a {
     color: inherit;
     text-decoration: none;
@@ -99,6 +128,25 @@
 }
 
 @layer components {
+  /* ── Select hover feedback (closed control) ────────────────────────── */
+  /* Tailwind hover: doesn't apply to select by default — we add it here */
+  select:not(:disabled):hover {
+    border-color: var(--color-outline) !important;
+    background-color: var(--color-surface-container-high) !important;
+  }
+
+  select:focus {
+    outline: none;
+    border-color: var(--color-primary) !important;
+  }
+
+  /* ── Button hover utilities — fill gaps where Tailwind classes are absent ── */
+  /* Any button that only has border/bg classes but no explicit hover will
+     get a subtle brightness lift so users always see interaction feedback */
+  button:not(:disabled):not([class*="hover:"]):hover {
+    filter: brightness(1.12);
+  }
+
   .app-shell-grid {
     background-image:
       linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
