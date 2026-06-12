@@ -1,103 +1,115 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "../components/shared/Button";
-import { MockBadge } from "../components/shared/MockBadge";
 import { Panel } from "../components/shared/Panel";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
-import { retryJob } from "../services/api";
-import type { Job } from "../types";
-
-const DUMMY_DLQ_JOBS: Job[] = [
-  {
-    id: "job_88a2-99cf-01",
-    type: "ProcessPaymentBatch",
-    payload: {
-      job_id: "job_9921_xbf",
-      context: {
-        user_id: "usr_0a112",
-        session_id: "sess_v881_active",
-        geo: "US/NY",
-        retry_policy: {
-          max_retries: 3,
-          backoff_factor: 2,
-        },
-      },
-      data: {
-        transactions: [
-          {
-            id: "tx_881",
-            amount: 142,
-            currency: "USD",
-            gateway: "stripe_v3",
-            metadata: {
-              reference: "REF-2023-OCT-991",
-              risk_score: 0.02,
-            },
-          },
-        ],
-      },
-      timestamp: "2025-07-10T14:22:01.009Z",
-      checksum: "sha256:8f3c...12a",
-    },
-    status: "failed",
-    priority: 1,
-    attempt_count: 3,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T08:00:00.000Z",
-    recur_interval: null,
-    last_error:
-      "TimeoutException: Upstream payment gateway failed to respond within 5000ms. Connection pool exhausted at source.",
-    result: null,
-    started_at: "2025-07-10T08:01:00.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T08:00:00.000Z",
-    updated_at: "2025-07-10T08:04:32.123Z",
-  },
-]; // DUMMY DATA
-
-const DUMMY_CPU_PERCENTAGE = "94%"; // DUMMY DATA
-const DUMMY_PURGE_COUNTDOWN = "23h 14m"; // DUMMY DATA
-const DUMMY_REGION = "us-east-1 (Primary)"; // DUMMY DATA
-
-function buildRetrySequence(job: Job) {
-  const base = job.started_at ? new Date(job.started_at).getTime() : Date.now();
-  return Array.from({ length: job.attempt_count }, (_, index) => ({
-    attempt: index + 1,
-    error: job.last_error ?? "Unknown error",
-    timestamp: new Date(base + index * 2 * 60 * 1000).toISOString(),
-  })); // DUMMY DATA
-}
+import { useSchedulerEvent } from "../context/SchedulerEvents";
+import { getJob, getJobAttempts, purgeJob, retryJob } from "../services/api";
+import type { Job, JobAttempt } from "../types";
 
 export default function DLQDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const job =
-    DUMMY_DLQ_JOBS.find((entry) => entry.id === id) ??
-    DUMMY_DLQ_JOBS[0] ??
-    null;
+
+  const [job, setJob] = useState<Job | null>(null);
+  const [attempts, setAttempts] = useState<JobAttempt[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
   const [copyLabel, setCopyLabel] = useState<"Copy" | "Copied!">("Copy");
   const [copyError, setCopyError] = useState(false);
   const [expanded, setExpanded] = useState(true);
+
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
-  if (!job) {
+  const [purging, setPurging] = useState(false);
+  const [purgeError, setPurgeError] = useState<string | null>(null);
+  const [confirmPurge, setConfirmPurge] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    Promise.all([getJob(id), getJobAttempts(id)])
+      .then(([jobData, attemptsData]) => {
+        setJob(jobData);
+        setAttempts(attemptsData);
+      })
+      .catch((err: unknown) =>
+        setFetchError(
+          err instanceof Error ? err.message : "Failed to load job",
+        ),
+      )
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  // ── SSE — minimal: only watch this specific job ───────────────────────
+  // When the job is retried (manual retry emits job.created with reset
+  // attempt_count), update the displayed job state so the page reflects
+  // the reset without requiring a manual reload.
+  useSchedulerEvent(
+    "job.created",
+    useCallback(
+      (e) => {
+        if (e.payload.job.id !== id) return;
+        setJob(e.payload.job);
+        // Re-fetch attempts since they were reset on manual retry
+        if (id)
+          getJobAttempts(id)
+            .then(setAttempts)
+            .catch(() => {});
+      },
+      [id],
+    ),
+  );
+
+  // Also patch if the job transitions while the detail page is open
+  useSchedulerEvent(
+    "job.started",
+    useCallback(
+      (e) => {
+        if (e.payload.job.id === id) setJob(e.payload.job);
+      },
+      [id],
+    ),
+  );
+  useSchedulerEvent(
+    "job.completed",
+    useCallback(
+      (e) => {
+        if (e.payload.job.id === id) setJob(e.payload.job);
+      },
+      [id],
+    ),
+  );
+  useSchedulerEvent(
+    "job.failed",
+    useCallback(
+      (e) => {
+        if (e.payload.job.id === id) setJob(e.payload.job);
+      },
+      [id],
+    ),
+  );
+
+  if (loading) {
     return (
       <div className="space-y-6">
-        <Link
-          to="/jobs/dlq"
-          className="inline-flex items-center gap-2 font-body text-sm text-primary transition hover:text-on-surface"
-        >
-          <span className="material-symbols-outlined text-[18px]">
-            arrow_back
-          </span>
-          Back to DLQ List
-        </Link>
+        <BackLink />
+        <Panel className="p-10 text-center">
+          <p className="font-body text-sm text-on-surface-variant">Loading…</p>
+        </Panel>
+      </div>
+    );
+  }
+
+  if (fetchError || !job) {
+    return (
+      <div className="space-y-6">
+        <BackLink />
         <Panel className="p-10 text-center">
           <p className="font-body text-sm text-on-surface-variant">
-            Job not found in the DLQ fixture set.
+            {fetchError ?? "Job not found."}
           </p>
         </Panel>
       </div>
@@ -105,7 +117,6 @@ export default function DLQDetail() {
   }
 
   const payloadString = JSON.stringify(job.payload, null, 2);
-  const retrySequence = buildRetrySequence(job);
 
   async function handleCopy() {
     try {
@@ -118,35 +129,52 @@ export default function DLQDetail() {
     }
   }
 
+  function handleExport() {
+    const blob = new Blob([payloadString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `job-${job.id}-payload.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleRetry() {
     setRetrying(true);
     setRetryError(null);
     try {
       await retryJob(job.id);
       navigate("/jobs/dlq");
-    } catch (error) {
-      setRetryError(error instanceof Error ? error.message : "Retry failed");
+    } catch (err) {
+      setRetryError(err instanceof Error ? err.message : "Retry failed");
     } finally {
       setRetrying(false);
     }
   }
 
+  async function handlePurge() {
+    if (!confirmPurge) {
+      setConfirmPurge(true);
+      return;
+    }
+    setPurging(true);
+    setPurgeError(null);
+    try {
+      await purgeJob(job.id);
+      navigate("/jobs/dlq");
+    } catch (err) {
+      setPurgeError(err instanceof Error ? err.message : "Purge failed");
+      setConfirmPurge(false);
+    } finally {
+      setPurging(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          to="/jobs/dlq"
-          className="inline-flex items-center gap-2 font-body text-sm text-primary transition hover:text-on-surface"
-        >
-          <span className="material-symbols-outlined text-[18px]">
-            arrow_back
-          </span>
-          Back to DLQ List
-        </Link>
-        <MockBadge label="Dummy Data" tone="danger" />
-        <MockBadge label="Live Retry Action" tone="info" />
-      </div>
+      <BackLink />
 
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-error/40 bg-error/10 px-5 py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
@@ -154,18 +182,19 @@ export default function DLQDetail() {
               <span className="material-symbols-outlined text-[16px]">
                 error
               </span>
-              Critical Failure
+              Dead Letter Queue
             </div>
             <h1 className="font-headline text-[28px] font-semibold text-on-surface">
               {job.type}
             </h1>
             <p className="font-body text-sm text-on-surface-variant">
-              Failed after {job.attempt_count} retry attempts — inspection view
-              styled after the Stitch DLQ investigation screen.
+              Failed after {job.attempt_count} attempt
+              {job.attempt_count !== 1 ? "s" : ""} — {job.max_retries} max
+              retries exhausted.
             </p>
           </div>
           <div className="space-y-2 font-code text-[12px] text-on-surface">
-            <p>ID: {job.id}</p>
+            <p className="break-all">ID: {job.id}</p>
             <PriorityBadge priority={job.priority} />
           </div>
         </div>
@@ -173,6 +202,7 @@ export default function DLQDetail() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
         <div className="space-y-4">
+          {/* ── Error Summary ──────────────────────────────────────────── */}
           <Panel>
             <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
               <h2 className="font-headline text-[20px] font-semibold text-on-surface">
@@ -182,32 +212,32 @@ export default function DLQDetail() {
             <div className="space-y-4 px-4 py-4 sm:px-5">
               <div className="rounded-lg border border-error/40 bg-error/10 p-4">
                 <p className="font-code text-[13px] leading-6 text-on-error-container">
-                  {job.last_error}
+                  {job.last_error ?? "No error message recorded"}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded border border-outline-variant bg-surface-container-low p-3">
                   <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
-                    Attempted At
+                    Last Updated
                   </p>
                   <p className="mt-2 font-code text-[12px] text-on-surface">
-                    {job.updated_at}
+                    {new Date(job.updated_at).toLocaleString()}
                   </p>
                 </div>
                 <div className="rounded border border-outline-variant bg-surface-container-low p-3">
                   <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
-                    Region
+                    Created At
                   </p>
                   <p className="mt-2 font-code text-[12px] text-on-surface">
-                    {DUMMY_REGION}
+                    {new Date(job.created_at).toLocaleString()}
                   </p>
                 </div>
                 <div className="rounded border border-outline-variant bg-surface-container-low p-3">
                   <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
-                    Worker Node
+                    Attempts
                   </p>
                   <p className="mt-2 font-code text-[12px] text-on-surface">
-                    ip-10-22-1-98.ec2
+                    {job.attempt_count} / {job.max_retries}
                   </p>
                 </div>
                 <div className="rounded border border-outline-variant bg-surface-container-low p-3">
@@ -222,68 +252,64 @@ export default function DLQDetail() {
             </div>
           </Panel>
 
+          {/* ── Retry Sequence ─────────────────────────────────────────── */}
           <Panel>
-            <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 sm:px-5">
+            <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
               <h2 className="font-headline text-[20px] font-semibold text-on-surface">
                 Retry Sequence
               </h2>
-              <MockBadge label="Dummy Timeline" tone="warning" />
             </div>
             <div className="space-y-5 px-4 py-4 sm:px-5">
-              {retrySequence.map((entry) => (
-                <div
-                  key={`${entry.attempt}-${entry.timestamp}`}
-                  className="flex gap-3"
-                >
-                  <div className="flex flex-col items-center">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full border border-error bg-error/10 font-code text-[11px] font-semibold text-error">
-                      {entry.attempt}
+              {attempts.length === 0 ? (
+                <p className="font-body text-sm text-on-surface-variant">
+                  No attempt records found.
+                </p>
+              ) : (
+                attempts.map((entry, idx) => (
+                  <div key={entry.id} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-error bg-error/10 font-code text-[11px] font-semibold text-error">
+                        {entry.attempt_num}
+                      </div>
+                      {idx < attempts.length - 1 && (
+                        <div className="mt-1 h-full w-px bg-outline-variant"></div>
+                      )}
                     </div>
-                    <div className="mt-1 h-full w-px bg-outline-variant"></div>
+                    <div className="space-y-1 pb-2">
+                      <p className="font-code text-[11px] text-on-surface-variant">
+                        {new Date(entry.attempted_at).toLocaleString()}
+                        {entry.duration_ms != null && (
+                          <span className="ml-2 text-on-surface-variant/60">
+                            ({entry.duration_ms}ms)
+                          </span>
+                        )}
+                      </p>
+                      <p className="font-body text-sm text-on-surface">
+                        Attempt {entry.attempt_num}
+                      </p>
+                      {entry.error ? (
+                        <p className="font-code text-[12px] text-on-error-container">
+                          {entry.error}
+                        </p>
+                      ) : (
+                        <p className="font-code text-[12px] text-secondary">
+                          No error recorded for this attempt
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-1 pb-2">
-                    <p className="font-code text-[11px] text-on-surface-variant">
-                      {entry.timestamp}
-                    </p>
-                    <p className="font-body text-sm text-on-surface">
-                      Attempt {entry.attempt}
-                    </p>
-                    <p className="font-code text-[12px] text-on-error-container">
-                      {entry.error}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel>
-            <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 sm:px-5">
-              <h2 className="font-headline text-[20px] font-semibold text-on-surface">
-                Node Metrics
-              </h2>
-              <MockBadge label="Dummy Data" />
-            </div>
-            <div className="space-y-3 px-4 py-4 sm:px-5">
-              <div className="flex items-center justify-between font-code text-[12px]">
-                <span className="text-on-surface-variant">CPU Usage</span>
-                <span className="text-error">{DUMMY_CPU_PERCENTAGE}</span>
-              </div>
-              <div className="h-2 rounded-full bg-surface-container-lowest">
-                <div
-                  className="h-full rounded-full bg-error"
-                  style={{ width: DUMMY_CPU_PERCENTAGE }}
-                ></div>
-              </div>
+                ))
+              )}
             </div>
           </Panel>
         </div>
 
         <div className="space-y-4">
+          {/* ── Raw Payload ────────────────────────────────────────────── */}
           <Panel className="min-h-[420px] overflow-hidden">
             <div className="flex flex-col gap-3 border-b border-outline-variant px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <h2 className="font-headline text-[20px] font-semibold text-on-surface">
-                Raw Payload Content
+                Raw Payload
               </h2>
               <div className="flex flex-wrap gap-2">
                 <Button icon="content_copy" variant="link" onClick={handleCopy}>
@@ -292,21 +318,21 @@ export default function DLQDetail() {
                 <Button
                   icon={expanded ? "unfold_less" : "unfold_more"}
                   variant="link"
-                  onClick={() => setExpanded((value) => !value)}
+                  onClick={() => setExpanded((v) => !v)}
                 >
                   {expanded ? "Collapse" : "Expand"}
                 </Button>
               </div>
             </div>
             <div className="px-4 py-4 sm:px-5">
-              {copyError ? (
+              {copyError && (
                 <p className="mb-3 font-body text-sm text-error">
                   Copy failed.
                 </p>
-              ) : null}
+              )}
               <div className="app-code-block overflow-auto p-4">
                 <pre
-                  className={`font-code text-[12px] leading-6 text-primary ${expanded ? "max-h-none" : "max-h-[260px] overflow-hidden"}`.trim()}
+                  className={`font-code text-[12px] leading-6 text-primary ${expanded ? "max-h-none" : "max-h-[260px] overflow-hidden"}`}
                 >
                   {payloadString}
                 </pre>
@@ -314,75 +340,122 @@ export default function DLQDetail() {
             </div>
           </Panel>
 
+          {/* ── Last Error ─────────────────────────────────────────────── */}
           <Panel>
-            <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 sm:px-5">
+            <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
               <h2 className="font-headline text-[20px] font-semibold text-on-surface">
-                Stack Trace
+                Last Error
               </h2>
-              <MockBadge label="Dummy Stack" tone="danger" />
             </div>
             <div className="px-4 py-4 sm:px-5">
               <div className="app-code-block border-error/30 bg-error-container/20 p-4">
                 <pre className="whitespace-pre-wrap font-code text-[12px] leading-6 text-on-error-container">
-                  {`com.infrastream.payment.exceptions.GatewayTimeoutException: Operation timed out after 5000ms
-at com.infrastream.payment.GatewayClient.execute(GatewayClient.java:142)
-at com.infrastream.payment.BatchProcessor.process(BatchProcessor.java:94)
-at com.infrastream.worker.JobRunner.run(JobRunner.java:312)
-Caused by: java.net.SocketTimeoutException: connect timed out`}
+                  {job.last_error ?? "No error message recorded for this job."}
                 </pre>
               </div>
             </div>
           </Panel>
 
+          {/* ── Actions ────────────────────────────────────────────────── */}
           <Panel>
-            <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 sm:px-5">
-              <div>
-                <h2 className="font-headline text-[20px] font-semibold text-on-surface">
-                  Actions
-                </h2>
-                <p className="mt-1 font-body text-sm text-on-surface-variant">
-                  Job will be auto-purged in {DUMMY_PURGE_COUNTDOWN}.
-                </p>
-              </div>
-              <MockBadge label="Mixed Reality" tone="info" />
+            <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
+              <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                Actions
+              </h2>
             </div>
             <div className="space-y-3 px-4 py-4 sm:px-5">
               <Button
                 icon="download"
                 variant="secondary"
                 className="w-full justify-center"
+                onClick={handleExport}
               >
                 Export Payload
               </Button>
-              <Button
-                icon="delete"
-                variant="danger"
-                className="w-full justify-center"
-              >
-                Purge from DLQ
-              </Button>
+
+              {/* Retry */}
               <button
                 type="button"
                 onClick={handleRetry}
-                disabled={retrying}
+                disabled={retrying || purging}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-primary bg-primary px-4 py-2 font-body text-[11px] font-semibold uppercase tracking-technical text-on-primary transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span
-                  className={`material-symbols-outlined text-[18px] ${retrying ? "animate-spin" : ""}`.trim()}
+                  className={`material-symbols-outlined text-[18px] ${retrying ? "animate-spin" : ""}`}
                 >
                   {retrying ? "refresh" : "replay"}
                 </span>
-                {retrying ? "Retrying..." : "Retry Job"}
+                {retrying ? "Retrying…" : "Retry Job"}
               </button>
-              {retryError ? (
+              {retryError && (
                 <div className="rounded border border-error bg-error/10 px-3 py-2 font-body text-sm text-on-error-container">
                   {retryError}
                 </div>
-              ) : null}
+              )}
+
+              {/* Purge — two-step confirm */}
+              {confirmPurge ? (
+                <div className="space-y-2 rounded border border-error/40 bg-error/10 p-3">
+                  <p className="font-body text-sm text-on-error-container">
+                    This permanently deletes the job and all its attempt
+                    records. This cannot be undone.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePurge}
+                      disabled={purging}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-error bg-error px-4 py-2 font-body text-[11px] font-semibold uppercase tracking-technical text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span
+                        className={`material-symbols-outlined text-[18px] ${purging ? "animate-spin" : ""}`}
+                      >
+                        {purging ? "refresh" : "delete_forever"}
+                      </span>
+                      {purging ? "Purging…" : "Confirm Purge"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmPurge(false)}
+                      disabled={purging}
+                      className="rounded-md border border-outline-variant px-4 py-2 font-body text-[11px] font-semibold uppercase tracking-technical text-on-surface transition hover:bg-surface-container-high disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  icon="delete"
+                  variant="danger"
+                  className="w-full justify-center"
+                  onClick={() => setConfirmPurge(true)}
+                  disabled={retrying}
+                >
+                  Purge from DLQ
+                </Button>
+              )}
+              {purgeError && (
+                <div className="rounded border border-error bg-error/10 px-3 py-2 font-body text-sm text-on-error-container">
+                  {purgeError}
+                </div>
+              )}
             </div>
           </Panel>
         </div>
       </div>
     </div>
+  );
+}
+
+function BackLink() {
+  return (
+    <Link
+      to="/jobs/dlq"
+      className="inline-flex items-center gap-2 font-body text-sm text-primary transition hover:text-on-surface"
+    >
+      <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+      Back to DLQ List
+    </Link>
   );
 }

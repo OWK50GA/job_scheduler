@@ -22,7 +22,8 @@
     "format": "prettier --write .",
     "seed:db": "tsx src/scripts/seeder.ts",
     "reset:db": "tsx src/scripts/reset-db.ts",
-    "validate": "pnpm run lint && pnpm format && pnpm test && pnpm build:server"
+    "validate": "pnpm run lint && pnpm format && pnpm test && pnpm build:server",
+    "debug:run": "pnpm tsx src/scripts/debug-run.ts"
   },
   "keywords": [],
   "author": "",

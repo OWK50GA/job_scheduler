@@ -297,6 +297,7 @@ describe("processJob", () => {
         job.id,
         "No handler registered for job type",
         0,
+        true,
       );
     });
 

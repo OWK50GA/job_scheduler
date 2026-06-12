@@ -1,129 +1,24 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../components/shared/Button";
-import { MockBadge } from "../components/shared/MockBadge";
 import { PageHeader } from "../components/shared/PageHeader";
 import { Panel } from "../components/shared/Panel";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { StatCard } from "../components/shared/StatCard";
 import { StatusBadge } from "../components/shared/StatusBadge";
-import { useSSE } from "../hooks/useSSE";
-import type { Job, SSEEvent } from "../types";
+import { useSchedulerEvent, useSSEConnected } from "../context/SchedulerEvents";
+import { getJobStats, listDLQJobs, listJobs, retryJob } from "../services/api";
+import type { Job, JobStats } from "../types";
 
 const primary = "#0ea5e9";
 const secondary = "#10b981";
 const error = "#ef4444";
 
-const DUMMY_JOBS: Job[] = [
-  {
-    id: "job-892-v4",
-    type: "ASYNC_TASK",
-    payload: { task: "ImageResizeProcessor", cluster: "cdn-worker-04" },
-    status: "processing",
-    priority: 1,
-    attempt_count: 1,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T08:00:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: null,
-    started_at: "2025-07-10T08:00:05.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T07:59:00.000Z",
-    updated_at: "2025-07-10T08:00:05.000Z",
-  },
-  {
-    id: "job-901-v2",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "EmailNotificationSync", worker: "mail-relay-01" },
-    status: "completed",
-    priority: 2,
-    attempt_count: 1,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T07:50:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: { delivered: true },
-    started_at: "2025-07-10T07:50:01.000Z",
-    completed_at: "2025-07-10T07:50:04.312Z",
-    cancelled_at: null,
-    created_at: "2025-07-10T07:49:55.000Z",
-    updated_at: "2025-07-10T07:50:04.312Z",
-  },
-  {
-    id: "job-721-x0",
-    type: "ASYNC_TASK",
-    payload: { task: "DatabaseIndexClean", cluster: "db-core-02" },
-    status: "failed",
-    priority: 1,
-    attempt_count: 3,
-    max_retries: 3,
-    next_retry_at: null,
-    scheduled_at: "2025-07-10T07:30:00.000Z",
-    recur_interval: null,
-    last_error: "TimeoutError: DB connection timed out after 5000ms",
-    result: null,
-    started_at: "2025-07-10T07:30:01.000Z",
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T07:29:50.000Z",
-    updated_at: "2025-07-10T07:31:10.000Z",
-  },
-  {
-    id: "job-114-u9",
-    type: "WEBHOOK_EVENT",
-    payload: { event: "AuditLogExport", worker: "audit-node-07" },
-    status: "pending",
-    priority: 3,
-    attempt_count: 0,
-    max_retries: 5,
-    next_retry_at: "2025-07-10T08:10:00.000Z",
-    scheduled_at: "2025-07-10T08:05:00.000Z",
-    recur_interval: null,
-    last_error: null,
-    result: null,
-    started_at: null,
-    completed_at: null,
-    cancelled_at: null,
-    created_at: "2025-07-10T08:04:50.000Z",
-    updated_at: "2025-07-10T08:04:50.000Z",
-  },
-]; // DUMMY DATA
-
-const DLQ_PAYLOAD = {
-  job_id: "f82-a912-88ba",
-  attempt: 5,
-  origin: "prod-cluster-01",
-  data: {
-    user_uid: "USR_84221",
-    action: "billing.recurring_payment",
-  },
-}; // DUMMY DATA
-
-const DLQ_STACK_TRACE = `at internal/modules/billing/worker.js:142:18
-at processTicksAndRejections (node:internal/process/task_queues:95:5)
-at async retryHandler (lib/retry-strategy.v2.js:12)`; // DUMMY DATA
-
-const LOG_LEVELS = ["INFO", "WARN", "DEBUG", "ERROR"] as const; // DUMMY DATA
-
-const INITIAL_LOGS: string[] = [
-  `[2025-07-10T08:00:00.000Z] INFO  Node-04 connection established`,
-  `[2025-07-10T07:59:57.312Z] WARN  Higher than normal latency on us-east-1 queue`,
-  `[2025-07-10T07:59:55.881Z] DEBUG Task job-892-v4 allocated to ImageProcessor:Worker2`,
-  `[2025-07-10T07:59:53.000Z] INFO  Completed sync of 42 entities in 12ms`,
-  `[2025-07-10T07:59:48.002Z] ERROR Redis connectivity timeout on instance 092 — reconnecting`,
-]; // DUMMY DATA
-
-const LOG_BUFFER_SIZE = 12;
-
-type TabValue = "ALL_TYPES" | "ASYNC_TASK" | "WEBHOOK_EVENT";
+type TabValue = "ALL_TYPES" | string;
 
 const TABS: { label: string; value: TabValue }[] = [
   { label: "ALL TYPES", value: "ALL_TYPES" },
-  { label: "ASYNC_TASK", value: "ASYNC_TASK" },
-  { label: "WEBHOOK_EVENT", value: "WEBHOOK_EVENT" },
+  { label: "send_email", value: "send_email" },
 ];
 
 function formatRuntime(startedAt: string | null, completedAt: string | null) {
@@ -131,103 +26,314 @@ function formatRuntime(startedAt: string | null, completedAt: string | null) {
   const endTime = completedAt ? new Date(completedAt).getTime() : Date.now();
   const ms = endTime - new Date(startedAt).getTime();
   if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
+  return `${(ms / 1000).toFixed(1)}ms`;
 }
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabValue>("ALL_TYPES");
   const [filterError, setFilterError] = useState(false);
-  const [logs, setLogs] = useState<string[]>(INITIAL_LOGS);
+  // TODO: Update logs
+  const [logs, setLogs] = useState<string[]>([]);
 
-  const handleSSEEvent = useCallback((event: SSEEvent) => {
-    const level = LOG_LEVELS[Math.floor(Math.random() * LOG_LEVELS.length)]; // DUMMY DATA
-    const ts = new Date().toISOString();
-    const msg = `[${ts}] ${level.padEnd(5)} ${event.type}: job ${event.payload.id} → ${event.payload.status}`;
-    setLogs((prev) => [msg, ...prev].slice(0, LOG_BUFFER_SIZE));
+  const [stats, setStats] = useState<JobStats | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  const [activeJobs, setActiveJobs] = useState<Job[]>([]);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+
+  const [dlqJob, setDlqJob] = useState<Job | null>(null);
+  const [dlqActionLoading, setDlqActionLoading] = useState(false);
+  const [dlqActionError, setDlqActionError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    getJobStats()
+      .then(setStats)
+      .catch((err: unknown) =>
+        setStatsError(
+          err instanceof Error ? err.message : "Failed to load stats",
+        ),
+      );
+
+    listJobs({ limit: 50 })
+      .then((res) => setActiveJobs(res.data))
+      .catch((err: unknown) =>
+        setJobsError(
+          err instanceof Error ? err.message : "Failed to load jobs",
+        ),
+      );
+
+    listDLQJobs(1, 1)
+      .then((res) => setDlqJob(res.data[0] ?? null))
+      .catch(() => {
+        // DLQ panel degrades silently — not critical
+      });
   }, []);
 
-  const { connected } = useSSE({
-    mockMode: true,
-    intervalMs: 3000,
-    onEvent: handleSSEEvent,
-  });
-
-  let filteredJobs: Job[] = DUMMY_JOBS;
-
-  try {
-    if (activeTab !== "ALL_TYPES") {
-      filteredJobs = DUMMY_JOBS.filter((job) => job.type === activeTab);
+  // ── DLQ actions ──────────────────────────────────────────────────────────
+  async function handleDLQRetry() {
+    if (!dlqJob) return;
+    setDlqActionLoading(true);
+    setDlqActionError(null);
+    try {
+      const updated = await retryJob(dlqJob.id);
+      setDlqJob(null);
+      setActiveJobs((prev) =>
+        prev.map((j) => (j.id === updated.id ? updated : j)),
+      );
+    } catch (err) {
+      setDlqActionError(err instanceof Error ? err.message : "Retry failed");
+    } finally {
+      setDlqActionLoading(false);
     }
-  } catch {
-    filteredJobs = DUMMY_JOBS;
   }
+
+  // ── SSE — real connection via SchedulerEventsProvider ────────────────────
+  const connected = useSSEConnected();
+  const LOG_BUFFER_SIZE = 12;
+
+  // stats.updated → refresh stat cards live
+  useSchedulerEvent(
+    "stats.updated",
+    useCallback((e) => {
+      setStats(e.payload.stats);
+    }, []),
+  );
+
+  // job.created / job.started / job.completed / job.cancelled → patch active jobs table
+  const patchJob = useCallback((job: Job) => {
+    setActiveJobs((prev) => {
+      const exists = prev.some((j) => j.id === job.id);
+      if (exists) return prev.map((j) => (j.id === job.id ? job : j));
+      return [job, ...prev].slice(0, 50);
+    });
+  }, []);
+
+  useSchedulerEvent(
+    "job.created",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.started",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.completed",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.cancelled",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.failed",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+
+  // job.dlq_entry → update the DLQ insight panel
+  useSchedulerEvent(
+    "job.dlq_entry",
+    useCallback((e) => {
+      setDlqJob(e.payload.job);
+    }, []),
+  );
+
+  // All lifecycle events → append a log line
+  const appendLog = useCallback((line: string) => {
+    setLogs((prev) => [line, ...prev].slice(0, LOG_BUFFER_SIZE));
+  }, []);
+
+  useSchedulerEvent(
+    "job.created",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.created: ${e.payload.job.id} (${e.payload.job.type})`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.started",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.started: ${e.payload.job.id}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.completed",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.completed: ${e.payload.job.id}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.failed",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] WARN  job.failed: ${e.payload.job.id} — ${e.payload.error}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.retry_scheduled",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.retry: ${e.payload.job.id} attempt ${e.payload.attempt}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.cancelled",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.cancelled: ${e.payload.job.id}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.dlq_entry",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] ERROR job.dlq_entry: ${e.payload.job.id} — ${e.payload.error}`,
+        ),
+      [appendLog],
+    ),
+  );
+
+  // ── Derived values ───────────────────────────────────────────────────────
+  const displayJobs =
+    activeTab === "ALL_TYPES"
+      ? activeJobs
+      : activeJobs.filter((job) => job.type === activeTab);
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Observability"
         title="Backend Core Dashboard"
-        description="High-density operational overview for the scheduler, worker activity, DLQ inspection, and live mock telemetry."
+        description="High-density operational overview for the scheduler, worker activity, DLQ inspection, and live telemetry."
         badges={
-          <>
-            <MockBadge label="Dummy Data" />
-            <MockBadge
-              label={connected ? "Frontend SSE Mock" : "SSE Reconnecting"}
-              tone={connected ? "info" : "danger"}
+          <span
+            className={[
+              "inline-flex items-center gap-1.5 rounded border px-2 py-1 font-body text-[10px] font-semibold uppercase tracking-wider",
+              connected
+                ? "border-secondary/40 bg-secondary/10 text-secondary"
+                : "border-error/40 bg-error/10 text-error",
+            ].join(" ")}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-secondary" : "bg-error"}`}
             />
-          </>
+            {connected ? "SSE Connected" : "SSE Reconnecting"}
+          </span>
         }
       />
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Total Jobs"
-          value="1,284,092"
-          badge={<MockBadge label="Mock Metrics" />}
-        >
-          <div className="flex h-6 items-end gap-[2px]">
-            <div className="w-1 bg-primary/80" style={{ height: "35%" }}></div>
-            <div className="w-1 bg-primary/80" style={{ height: "55%" }}></div>
-            <div className="w-1 bg-primary/80" style={{ height: "85%" }}></div>
-            <div className="w-1 bg-primary/80" style={{ height: "65%" }}></div>
-            <div className="w-1 bg-primary/80" style={{ height: "95%" }}></div>
-          </div>
-        </StatCard>
-        <StatCard
-          label="Processing"
-          value="429"
-          accentColor={primary}
-          icon="refresh"
-          badge={<MockBadge label="Live Mock" tone="info" />}
-        />
-        <StatCard
-          label="Completed (24h)"
-          value="84,103"
-          accentColor={secondary}
-          icon="done_all"
-        />
-        <StatCard
-          label="Failed / DLQ"
-          value="12"
-          accentColor={error}
-          icon="warning"
-        />
-      </div>
+      {/* ── Stats ──────────────────────────────────────────────────────── */}
+      {statsError ? (
+        <div className="rounded border border-error bg-error/10 px-4 py-3 font-body text-sm text-on-error-container">
+          Stats unavailable: {statsError}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Total Jobs"
+            value={stats ? stats.total.toLocaleString() : "—"}
+          >
+            <div className="flex h-6 items-end gap-[2px]">
+              <div
+                className="w-1 bg-primary/80"
+                style={{ height: "35%" }}
+              ></div>
+              <div
+                className="w-1 bg-primary/80"
+                style={{ height: "55%" }}
+              ></div>
+              <div
+                className="w-1 bg-primary/80"
+                style={{ height: "85%" }}
+              ></div>
+              <div
+                className="w-1 bg-primary/80"
+                style={{ height: "65%" }}
+              ></div>
+              <div
+                className="w-1 bg-primary/80"
+                style={{ height: "95%" }}
+              ></div>
+            </div>
+          </StatCard>
+          <StatCard
+            label="Processing"
+            value={stats ? stats.processing.toLocaleString() : "—"}
+            accentColor={primary}
+            icon="refresh"
+          />
+          <StatCard
+            label="Completed"
+            value={stats ? stats.completed.toLocaleString() : "—"}
+            accentColor={secondary}
+            icon="done_all"
+          />
+          <StatCard
+            label="Failed / DLQ"
+            value={stats ? `${stats.failed} / ${stats.dlq}` : "—"}
+            accentColor={error}
+            icon="warning"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
+        {/* ── Active Jobs Stream ─────────────────────────────────────── */}
         <Panel className="xl:col-span-8">
           <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-headline text-[20px] font-semibold text-on-surface">
-                    Active Jobs Stream
-                  </h2>
-                  <MockBadge label="Dummy Data" />
-                </div>
+                <h2 className="font-headline text-[20px] font-semibold text-on-surface">
+                  Active Jobs Stream
+                </h2>
                 <p className="font-body text-sm text-on-surface-variant">
-                  Current queue snapshot styled to match the Stitch operational
-                  dashboard.
+                  Current queue snapshot — most recent jobs across all statuses.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -267,49 +373,67 @@ export default function Dashboard() {
               </div>
             ) : null}
 
-            <div className="overflow-x-auto">
-              <table className="app-table min-w-full border-collapse text-left">
-                <thead>
-                  <tr className="bg-surface-container-low">
-                    <th className="px-4 py-3">Job ID</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Priority</th>
-                    <th className="px-4 py-3 text-right">Runtime</th>
-                    <th className="px-4 py-3 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant">
-                  {filteredJobs.map((job) => (
-                    <tr
-                      key={job.id}
-                      className="transition hover:bg-surface-container-highest/20"
-                    >
-                      <td className="px-4 py-3 font-code text-[12px] text-primary">
-                        #{job.id}
-                      </td>
-                      <td className="px-4 py-3 font-body text-sm text-on-surface">
-                        {String(
-                          job.payload.task ?? job.payload.event ?? job.type,
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <PriorityBadge priority={job.priority} />
-                      </td>
-                      <td className="px-4 py-3 text-right font-code text-[12px] text-on-surface-variant">
-                        {formatRuntime(job.started_at, job.completed_at)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <StatusBadge status={job.status} />
-                      </td>
+            {jobsError ? (
+              <div className="rounded border border-error bg-error/10 px-3 py-2 text-sm text-on-error-container">
+                Failed to load jobs: {jobsError}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="app-table min-w-full border-collapse text-left">
+                  <thead>
+                    <tr className="bg-surface-container-low">
+                      <th className="px-4 py-3">Job ID</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Priority</th>
+                      <th className="px-4 py-3 text-right">Runtime</th>
+                      <th className="px-4 py-3 text-right">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant">
+                    {displayJobs.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-4 py-10 text-center font-body text-sm text-on-surface-variant"
+                        >
+                          {activeJobs.length === 0
+                            ? "Loading…"
+                            : "No jobs match this filter."}
+                        </td>
+                      </tr>
+                    ) : (
+                      displayJobs.map((job) => (
+                        <tr
+                          key={job.id}
+                          className="transition hover:bg-surface-container-highest/20"
+                        >
+                          <td className="px-4 py-3 font-code text-[12px] text-primary">
+                            #{job.id.slice(0, 8)}
+                          </td>
+                          <td className="px-4 py-3 font-body text-sm text-on-surface">
+                            {job.type}
+                          </td>
+                          <td className="px-4 py-3">
+                            <PriorityBadge priority={job.priority} />
+                          </td>
+                          <td className="px-4 py-3 text-right font-code text-[12px] text-on-surface-variant">
+                            {formatRuntime(job.started_at, job.completed_at)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <StatusBadge status={job.status} />
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </Panel>
 
         <div className="space-y-3 xl:col-span-4">
+          {/* ── DLQ Insight ─────────────────────────────────────────── */}
           <Panel>
             <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
               <div className="flex items-center justify-between gap-3">
@@ -321,84 +445,124 @@ export default function Dashboard() {
                     DLQ Insight
                   </h2>
                 </div>
-                <MockBadge label="Dummy Data" tone="danger" />
+                {dlqJob == null && (
+                  <span className="font-body text-xs text-on-surface-variant">
+                    No DLQ jobs
+                  </span>
+                )}
               </div>
             </div>
             <div className="space-y-4 px-4 py-4 sm:px-5">
-              <div>
-                <p className="mb-2 font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
-                  Payload Investigation
+              {dlqJob ? (
+                <>
+                  <div>
+                    <p className="mb-2 font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                      Payload Investigation
+                    </p>
+                    <pre className="app-code-block overflow-x-auto p-4 text-[12px] leading-6 text-primary">
+                      {JSON.stringify(dlqJob.payload, null, 2)}
+                    </pre>
+                  </div>
+                  <div>
+                    <p className="mb-2 font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
+                      Last Error
+                    </p>
+                    <pre className="rounded-lg border border-error/30 bg-error-container/20 p-4 font-code text-[11px] leading-5 text-on-error-container whitespace-pre-wrap">
+                      {dlqJob.last_error ?? "No error message recorded"}
+                    </pre>
+                  </div>
+                </>
+              ) : (
+                <p className="font-body text-sm text-on-surface-variant">
+                  Dead-letter queue is empty.
                 </p>
-                <pre className="app-code-block overflow-x-auto p-4 text-[12px] leading-6 text-primary">
-                  {JSON.stringify(DLQ_PAYLOAD, null, 2)}
-                </pre>
-              </div>
-              <div>
-                <p className="mb-2 font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
-                  Error Trace
-                </p>
-                <pre className="rounded-lg border border-error/30 bg-error-container/20 p-4 font-code text-[11px] leading-5 text-on-error-container whitespace-pre-wrap">
-                  {DLQ_STACK_TRACE}
-                </pre>
-              </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
-                <Button icon="delete" variant="danger" className="w-full">
+                <Button
+                  icon="delete"
+                  variant="danger"
+                  className="w-full"
+                  onClick={() => dlqJob && navigate(`/jobs/dlq/${dlqJob.id}`)}
+                  disabled={!dlqJob}
+                >
                   Purge
                 </Button>
                 <Button
                   icon="history_toggle_off"
                   variant="secondary"
                   className="w-full border-on-surface bg-on-surface text-surface hover:bg-white/90"
+                  onClick={handleDLQRetry}
+                  disabled={!dlqJob || dlqActionLoading}
                 >
-                  Retry Job
+                  {dlqActionLoading ? "Retrying…" : "Retry Job"}
                 </Button>
               </div>
+              {dlqActionError && (
+                <p className="font-body text-xs text-error">{dlqActionError}</p>
+              )}
             </div>
           </Panel>
 
+          {/* ── Queue health summary ─────────────────────────────────── */}
           <Panel>
             <div className="flex items-center justify-between border-b border-outline-variant px-4 py-4 sm:px-5">
               <div className="space-y-1">
                 <p className="font-body text-[10px] font-semibold uppercase tracking-technical text-on-surface-variant">
-                  Node Health
+                  Queue Summary
                 </p>
                 <div className="flex items-center gap-2 text-[11px] text-on-secondary-container">
                   <span className="h-2 w-2 rounded-full bg-secondary"></span>
-                  NOMINAL
+                  {stats ? "Live" : "Loading"}
                 </div>
               </div>
-              <MockBadge label="Dummy Data" />
             </div>
             <div className="space-y-4 px-4 py-4 sm:px-5 font-code text-[12px]">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-on-surface-variant">CPU Usage</span>
-                  <span className="text-primary">42.1%</span>
+                  <span className="text-on-surface-variant">Pending</span>
+                  <span className="text-primary">{stats?.pending ?? "—"}</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-surface-container-lowest">
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: "42%" }}
-                  ></div>
-                </div>
+                {stats ? (
+                  <div className="h-1.5 rounded-full bg-surface-container-lowest">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{
+                        width:
+                          stats.total > 0
+                            ? `${Math.round((stats.pending / stats.total) * 100)}%`
+                            : "0%",
+                      }}
+                    ></div>
+                  </div>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-on-surface-variant">Memory Load</span>
-                  <span className="text-secondary">18.9GB / 32GB</span>
+                  <span className="text-on-surface-variant">Cancelled</span>
+                  <span className="text-secondary">
+                    {stats?.cancelled ?? "—"}
+                  </span>
                 </div>
-                <div className="h-1.5 rounded-full bg-surface-container-lowest">
-                  <div
-                    className="h-full rounded-full bg-secondary"
-                    style={{ width: "68%" }}
-                  ></div>
-                </div>
+                {stats ? (
+                  <div className="h-1.5 rounded-full bg-surface-container-lowest">
+                    <div
+                      className="h-full rounded-full bg-secondary"
+                      style={{
+                        width:
+                          stats.total > 0
+                            ? `${Math.round((stats.cancelled / stats.total) * 100)}%`
+                            : "0%",
+                      }}
+                    ></div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </Panel>
         </div>
       </div>
 
+      {/* ── Live System Logs ─────────────────────────────────────────────── */}
       <Panel>
         <div className="flex flex-col gap-3 border-b border-outline-variant px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex items-center gap-2">
@@ -409,13 +573,19 @@ export default function Dashboard() {
               Live System Logs
             </h2>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <MockBadge
-              label={connected ? "Frontend SSE Mock" : "SSE Reconnecting"}
-              tone={connected ? "info" : "danger"}
+          <span
+            className={[
+              "inline-flex items-center gap-1.5 rounded border px-2 py-1 font-body text-[10px] font-semibold uppercase tracking-wider",
+              connected
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-outline-variant bg-surface-container-low text-on-surface-variant",
+            ].join(" ")}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-primary" : "bg-outline"}`}
             />
-            <MockBadge label="Dummy Logs" />
-          </div>
+            {connected ? "Live" : "Disconnected"}
+          </span>
         </div>
         <div className="app-code-block m-4 h-48 overflow-y-auto p-4 sm:m-5">
           <div className="space-y-1 font-code text-[11px] leading-5">
