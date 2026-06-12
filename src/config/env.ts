@@ -4,7 +4,7 @@ config();
 
 export const envConfig = {
   NODE_ENV: process.env.NODE_ENV || "development",
-  PORT: parseInt(process.env.PORT || "3001"),
+  PORT: parseInt(process.env.PORT || "3002"),
   HOST:
     process.env.NODE_ENV === "production"
       ? "0.0.0.0"
