@@ -19,20 +19,21 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script_stop: true
           script: |
-            sudo su - hngdevops
-            set -e
-            cd /home/hngdevops/projects/hng14/job_scheduler
-            echo "Pulling latest changes from master..."
-            git fetch origin
-            git checkout master
-            git pull origin master
-            echo "Installing dependencies..."
-            pnpm install
-            pnpm install:ui
-            echo "Building processes..."
-            pnpm run build:server
-            pnpm run build:ui
-            echo "Restarting pm2 processes"
-            pm2 restart job-scheduler-server
-            pm2 restart job-scheduler-worker
-            pm2 save
+            sudo -u hngdevops bash -c '
+              set -e
+              cd /home/hngdevops/projects/hng14/job_scheduler
+              echo "Pulling latest changes from master..."
+              git fetch origin
+              git checkout master
+              git pull origin master
+              echo "Installing dependencies..."
+              pnpm install
+              pnpm install:ui
+              echo "Building processes..."
+              pnpm run build:server
+              pnpm run build:ui
+              echo "Restarting pm2 processes"
+              pm2 restart job-scheduler-server
+              pm2 restart job-scheduler-worker
+              pm2 save
+            '
