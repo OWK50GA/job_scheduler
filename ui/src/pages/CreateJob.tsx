@@ -6,11 +6,7 @@ import { Panel } from "../components/shared/Panel";
 import { createJob } from "../services/api";
 import type { CreateJobInput } from "../types";
 
-type RecurInterval =
-  | ""
-  | "every_1_minute"
-  | "every_5_minutes"
-  | "every_1_hour";
+type RecurInterval = "" | "every_1_minute" | "every_5_minutes" | "every_1_hour";
 
 const DEFAULT_PAYLOAD_JSON = JSON.stringify(
   {
@@ -96,7 +92,9 @@ export default function CreateJob() {
     }
 
     if (dependsOn && !UUID_RE.test(dependsOn)) {
-      setDependsOnError("Must be a valid UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)");
+      setDependsOnError(
+        "Must be a valid UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)",
+      );
       hasError = true;
     }
 

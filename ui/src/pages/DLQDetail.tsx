@@ -35,7 +35,9 @@ export default function DLQDetail() {
         setAttempts(attemptsData);
       })
       .catch((err: unknown) =>
-        setFetchError(err instanceof Error ? err.message : "Failed to load job"),
+        setFetchError(
+          err instanceof Error ? err.message : "Failed to load job",
+        ),
       )
       .finally(() => setLoading(false));
   }, [id]);
@@ -127,14 +129,18 @@ export default function DLQDetail() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-sm border border-error/40 bg-error/10 px-2 py-1 font-body text-[10px] font-semibold uppercase tracking-technical text-error">
-              <span className="material-symbols-outlined text-[16px]">error</span>
+              <span className="material-symbols-outlined text-[16px]">
+                error
+              </span>
               Dead Letter Queue
             </div>
             <h1 className="font-headline text-[28px] font-semibold text-on-surface">
               {job.type}
             </h1>
             <p className="font-body text-sm text-on-surface-variant">
-              Failed after {job.attempt_count} attempt{job.attempt_count !== 1 ? "s" : ""} — {job.max_retries} max retries exhausted.
+              Failed after {job.attempt_count} attempt
+              {job.attempt_count !== 1 ? "s" : ""} — {job.max_retries} max
+              retries exhausted.
             </p>
           </div>
           <div className="space-y-2 font-code text-[12px] text-on-surface">
@@ -146,7 +152,6 @@ export default function DLQDetail() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
         <div className="space-y-4">
-
           {/* ── Error Summary ──────────────────────────────────────────── */}
           <Panel>
             <div className="border-b border-outline-variant px-4 py-4 sm:px-5">
@@ -247,11 +252,9 @@ export default function DLQDetail() {
               )}
             </div>
           </Panel>
-
         </div>
 
         <div className="space-y-4">
-
           {/* ── Raw Payload ────────────────────────────────────────────── */}
           <Panel className="min-h-[420px] overflow-hidden">
             <div className="flex flex-col gap-3 border-b border-outline-variant px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
@@ -273,7 +276,9 @@ export default function DLQDetail() {
             </div>
             <div className="px-4 py-4 sm:px-5">
               {copyError && (
-                <p className="mb-3 font-body text-sm text-error">Copy failed.</p>
+                <p className="mb-3 font-body text-sm text-error">
+                  Copy failed.
+                </p>
               )}
               <div className="app-code-block overflow-auto p-4">
                 <pre
@@ -325,7 +330,9 @@ export default function DLQDetail() {
                 disabled={retrying || purging}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-primary bg-primary px-4 py-2 font-body text-[11px] font-semibold uppercase tracking-technical text-on-primary transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span className={`material-symbols-outlined text-[18px] ${retrying ? "animate-spin" : ""}`}>
+                <span
+                  className={`material-symbols-outlined text-[18px] ${retrying ? "animate-spin" : ""}`}
+                >
                   {retrying ? "refresh" : "replay"}
                 </span>
                 {retrying ? "Retrying…" : "Retry Job"}
@@ -340,7 +347,8 @@ export default function DLQDetail() {
               {confirmPurge ? (
                 <div className="space-y-2 rounded border border-error/40 bg-error/10 p-3">
                   <p className="font-body text-sm text-on-error-container">
-                    This permanently deletes the job and all its attempt records. This cannot be undone.
+                    This permanently deletes the job and all its attempt
+                    records. This cannot be undone.
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -349,7 +357,9 @@ export default function DLQDetail() {
                       disabled={purging}
                       className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-error bg-error px-4 py-2 font-body text-[11px] font-semibold uppercase tracking-technical text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <span className={`material-symbols-outlined text-[18px] ${purging ? "animate-spin" : ""}`}>
+                      <span
+                        className={`material-symbols-outlined text-[18px] ${purging ? "animate-spin" : ""}`}
+                      >
                         {purging ? "refresh" : "delete_forever"}
                       </span>
                       {purging ? "Purging…" : "Confirm Purge"}
@@ -382,7 +392,6 @@ export default function DLQDetail() {
               )}
             </div>
           </Panel>
-
         </div>
       </div>
     </div>

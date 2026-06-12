@@ -61,13 +61,17 @@ export default function Dashboard() {
     getJobStats()
       .then(setStats)
       .catch((err: unknown) =>
-        setStatsError(err instanceof Error ? err.message : "Failed to load stats"),
+        setStatsError(
+          err instanceof Error ? err.message : "Failed to load stats",
+        ),
       );
 
     listJobs({ limit: 50 })
       .then((res) => setActiveJobs(res.data))
       .catch((err: unknown) =>
-        setJobsError(err instanceof Error ? err.message : "Failed to load jobs"),
+        setJobsError(
+          err instanceof Error ? err.message : "Failed to load jobs",
+        ),
       );
 
     listDLQJobs(1, 1)
@@ -90,9 +94,7 @@ export default function Dashboard() {
         prev.map((j) => (j.id === updated.id ? updated : j)),
       );
     } catch (err) {
-      setDlqActionError(
-        err instanceof Error ? err.message : "Retry failed",
-      );
+      setDlqActionError(err instanceof Error ? err.message : "Retry failed");
     } finally {
       setDlqActionLoading(false);
     }
@@ -149,11 +151,26 @@ export default function Dashboard() {
             value={stats ? stats.total.toLocaleString() : "—"}
           >
             <div className="flex h-6 items-end gap-[2px]">
-              <div className="w-1 bg-primary/80" style={{ height: "35%" }}></div>
-              <div className="w-1 bg-primary/80" style={{ height: "55%" }}></div>
-              <div className="w-1 bg-primary/80" style={{ height: "85%" }}></div>
-              <div className="w-1 bg-primary/80" style={{ height: "65%" }}></div>
-              <div className="w-1 bg-primary/80" style={{ height: "95%" }}></div>
+              <div
+                className="w-1 bg-primary/80"
+                style={{ height: "35%" }}
+              ></div>
+              <div
+                className="w-1 bg-primary/80"
+                style={{ height: "55%" }}
+              ></div>
+              <div
+                className="w-1 bg-primary/80"
+                style={{ height: "85%" }}
+              ></div>
+              <div
+                className="w-1 bg-primary/80"
+                style={{ height: "65%" }}
+              ></div>
+              <div
+                className="w-1 bg-primary/80"
+                style={{ height: "95%" }}
+              ></div>
             </div>
           </StatCard>
           <StatCard
@@ -250,7 +267,9 @@ export default function Dashboard() {
                           colSpan={5}
                           className="px-4 py-10 text-center font-body text-sm text-on-surface-variant"
                         >
-                          {activeJobs.length === 0 ? "Loading…" : "No jobs match this filter."}
+                          {activeJobs.length === 0
+                            ? "Loading…"
+                            : "No jobs match this filter."}
                         </td>
                       </tr>
                     ) : (
@@ -297,7 +316,11 @@ export default function Dashboard() {
                     DLQ Insight
                   </h2>
                 </div>
-                {dlqJob == null && <span className="font-body text-xs text-on-surface-variant">No DLQ jobs</span>}
+                {dlqJob == null && (
+                  <span className="font-body text-xs text-on-surface-variant">
+                    No DLQ jobs
+                  </span>
+                )}
               </div>
             </div>
             <div className="space-y-4 px-4 py-4 sm:px-5">
@@ -375,9 +398,10 @@ export default function Dashboard() {
                     <div
                       className="h-full rounded-full bg-primary"
                       style={{
-                        width: stats.total > 0
-                          ? `${Math.round((stats.pending / stats.total) * 100)}%`
-                          : "0%",
+                        width:
+                          stats.total > 0
+                            ? `${Math.round((stats.pending / stats.total) * 100)}%`
+                            : "0%",
                       }}
                     ></div>
                   </div>
@@ -386,16 +410,19 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-on-surface-variant">Cancelled</span>
-                  <span className="text-secondary">{stats?.cancelled ?? "—"}</span>
+                  <span className="text-secondary">
+                    {stats?.cancelled ?? "—"}
+                  </span>
                 </div>
                 {stats ? (
                   <div className="h-1.5 rounded-full bg-surface-container-lowest">
                     <div
                       className="h-full rounded-full bg-secondary"
                       style={{
-                        width: stats.total > 0
-                          ? `${Math.round((stats.cancelled / stats.total) * 100)}%`
-                          : "0%",
+                        width:
+                          stats.total > 0
+                            ? `${Math.round((stats.cancelled / stats.total) * 100)}%`
+                            : "0%",
                       }}
                     ></div>
                   </div>

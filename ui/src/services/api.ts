@@ -118,12 +118,19 @@ export async function retryJob(id: string): Promise<Job> {
 
 export async function purgeJob(id: string): Promise<{ id: string }> {
   const res = await fetch(`/api/v1/jobs/${id}/purge`, { method: "DELETE" });
-  const body = await handleResponse<{ status: string; data: { id: string } }>(res);
+  const body = await handleResponse<{ status: string; data: { id: string } }>(
+    res,
+  );
   return body.data;
 }
 
-export async function getJobAttempts(id: string): Promise<import("../types").JobAttempt[]> {
+export async function getJobAttempts(
+  id: string,
+): Promise<import("../types").JobAttempt[]> {
   const res = await fetch(`/api/v1/jobs/${id}/attempts`);
-  const body = await handleResponse<{ status: string; data: import("../types").JobAttempt[] }>(res);
+  const body = await handleResponse<{
+    status: string;
+    data: import("../types").JobAttempt[];
+  }>(res);
   return body.data;
 }

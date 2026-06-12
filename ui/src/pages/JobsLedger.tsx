@@ -33,7 +33,9 @@ export default function JobsLedger() {
 
   // ── Filter state ─────────────────────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState<"" | JobStatus>("");
-  const [priorityFilter, setPriorityFilter] = useState<"" | "1" | "2" | "3">("");
+  const [priorityFilter, setPriorityFilter] = useState<"" | "1" | "2" | "3">(
+    "",
+  );
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -45,7 +47,9 @@ export default function JobsLedger() {
   const [error, setError] = useState<string | null>(null);
 
   // ── Action loading states ─────────────────────────────────────────────
-  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
+    {},
+  );
 
   // ── Client-side pagination ────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,7 +77,8 @@ export default function JobsLedger() {
   const filteredJobs = useMemo(() => {
     return allJobs.filter((job) => {
       if (statusFilter && job.status !== statusFilter) return false;
-      if (priorityFilter && job.priority !== Number(priorityFilter)) return false;
+      if (priorityFilter && job.priority !== Number(priorityFilter))
+        return false;
       if (dateFrom) {
         const from = new Date(dateFrom).getTime();
         if (new Date(job.created_at).getTime() < from) return false;
@@ -208,7 +213,9 @@ export default function JobsLedger() {
                   setCurrentPage(1);
                 }}
               />
-              <span className="font-body text-xs text-on-surface-variant">to</span>
+              <span className="font-body text-xs text-on-surface-variant">
+                to
+              </span>
               <input
                 type="date"
                 className={inputClassName}
@@ -384,9 +391,7 @@ export default function JobsLedger() {
                             job.attempt_count >= job.max_retries && (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  navigate(`/jobs/dlq/${job.id}`)
-                                }
+                                onClick={() => navigate(`/jobs/dlq/${job.id}`)}
                                 className="rounded border border-outline-variant bg-surface-container-low p-1.5 text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
                                 aria-label={`Inspect job ${job.id}`}
                                 title="Investigate"
@@ -409,8 +414,7 @@ export default function JobsLedger() {
         {/* Footer / pagination */}
         <div className="flex flex-col gap-3 border-t border-outline-variant bg-surface-container-low px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <span className="font-body text-sm text-on-surface-variant">
-            Showing{" "}
-            {filteredJobs.length === 0 ? 0 : pageStart + 1}–
+            Showing {filteredJobs.length === 0 ? 0 : pageStart + 1}–
             {Math.min(pageStart + PAGE_SIZE, filteredJobs.length)} of{" "}
             {filteredJobs.length}
           </span>
