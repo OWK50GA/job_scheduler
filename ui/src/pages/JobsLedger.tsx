@@ -27,7 +27,7 @@ function computeRuntime(job: Job) {
 }
 
 const inputClassName =
-  "h-9 w-full rounded border border-outline-variant bg-surface-container-lowest px-3 font-body text-sm text-on-surface outline-none transition focus:border-primary";
+  "h-9 w-full rounded border border-outline-variant bg-surface-container-lowest px-3 font-body text-sm text-on-surface outline-none transition focus:border-primary hover:border-outline";
 
 export default function JobsLedger() {
   const navigate = useNavigate();
@@ -201,7 +201,7 @@ export default function JobsLedger() {
               variant="primary"
               onClick={() => navigate("/jobs/new")}
             >
-              New Manual Job
+              Create Job
             </Button>
           </>
         }
@@ -354,7 +354,7 @@ export default function JobsLedger() {
                   return (
                     <tr
                       key={job.id}
-                      className="transition hover:bg-surface-container-highest/20"
+                      className="transition hover:bg-slate-600"
                     >
                       {/* Job ID */}
                       <td className="px-4 py-3 font-code text-[12px] text-primary">

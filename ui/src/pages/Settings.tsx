@@ -58,7 +58,7 @@ function ToggleSwitch({
 }
 
 const inputClassName =
-  "w-full rounded border border-outline-variant bg-surface-container-lowest px-3 py-2 font-code text-[13px] text-on-surface outline-none transition focus:border-primary";
+  "w-full rounded border border-outline-variant bg-surface-container-lowest px-3 py-2 font-code text-[13px] text-on-surface outline-none transition focus:border-primary hover:border-outline";
 
 export default function Settings() {
   const [masterApiKey, setMasterApiKey] = useState(DUMMY_MASTER_API_KEY);

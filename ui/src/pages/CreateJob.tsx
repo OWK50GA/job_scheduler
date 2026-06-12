@@ -28,7 +28,7 @@ const PRIORITY_OPTIONS: {
 ];
 
 const inputClassName =
-  "h-11 w-full rounded border border-outline-variant bg-surface-container-lowest px-3 font-body text-sm text-on-surface outline-none transition focus:border-primary";
+  "h-11 w-full rounded border border-outline-variant bg-surface-container-lowest px-3 font-body text-sm text-on-surface outline-none transition focus:border-primary hover:border-outline";
 
 const textareaClassName =
   "min-h-[220px] w-full resize-none rounded-lg border border-outline-variant bg-transparent px-4 py-3 font-code text-[13px] leading-6 text-primary outline-none";
@@ -238,7 +238,7 @@ export default function CreateJob() {
                         className={[
                           "cursor-pointer rounded-lg border p-4 transition",
                           active
-                            ? "border-primary bg-primary/10"
+                            ? "border-primary bg-sky-200 text-black"
                             : "border-outline-variant bg-surface-container-low hover:border-outline hover:bg-surface-container-high",
                         ].join(" ")}
                       >
@@ -274,7 +274,7 @@ export default function CreateJob() {
                 >
                   Depends On{" "}
                   <span className="normal-case text-on-surface-variant/60">
-                    (optional — job UUID)
+                    (optional - job UUID)
                   </span>
                 </label>
                 <input
@@ -344,7 +344,7 @@ export default function CreateJob() {
               {/* Submit row */}
               <div className="flex flex-wrap items-center justify-end gap-3 border-t border-outline-variant pt-4">
                 <Button
-                  variant="ghost"
+                  variant="primary"
                   onClick={() => navigate("/jobs")}
                   disabled={submitting}
                 >
@@ -353,7 +353,7 @@ export default function CreateJob() {
                 <button
                   type="submit"
                   disabled={submitting || !jobType.trim()}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-primary bg-primary px-5 py-2 font-body text-[11px] font-semibold uppercase tracking-wider text-on-primary transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-primary bg-primary px-5 py-2 font-body text-[11px] font-semibold uppercase tracking-wider text-on-primary transition hover:bg-sky-200 hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span
                     className={`material-symbols-outlined text-[18px] ${submitting ? "animate-spin" : ""}`.trim()}
@@ -377,16 +377,16 @@ export default function CreateJob() {
             </div>
             <div className="space-y-4 px-4 py-4 sm:px-5">
               {[
-                {
-                  title: "Priority Placement",
-                  body: "Critical priority jobs bypass the wait state and are assigned to the next available worker node immediately.",
-                  color: "bg-primary",
-                },
-                {
-                  title: "Resource Allocation",
-                  body: "Standard jobs are handled via round-robin distribution across Tier-1 clusters.",
-                  color: "bg-secondary",
-                },
+                // {
+                //   title: "Priority Placement",
+                //   body: "Critical priority jobs bypass the wait state and are assigned to the next available worker node immediately.",
+                //   color: "bg-primary",
+                // },
+                // {
+                //   title: "Resource Allocation",
+                //   body: "Standard jobs are handled via round-robin distribution across Tier-1 clusters.",
+                //   color: "bg-secondary",
+                // },
                 {
                   title: "Latency Warning",
                   body: "Low priority tasks may experience additional warm-up time during peak traffic windows.",

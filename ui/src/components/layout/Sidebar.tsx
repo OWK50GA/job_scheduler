@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Button } from "../shared/Button";
+// import { Button } from "../shared/Button";
 
 type NavItem = {
   label: string;
@@ -28,14 +28,14 @@ const navItems: NavItem[] = [
     icon: "data_alert",
     match: (pathname) => pathname.startsWith("/jobs/dlq"),
   },
-  { label: "Metrics", icon: "monitoring", disabled: true },
-  { label: "Infrastructure", icon: "dns", disabled: true },
-  {
-    label: "Settings",
-    path: "/settings",
-    icon: "settings",
-    match: (pathname) => pathname === "/settings",
-  },
+  // { label: "Metrics", icon: "monitoring", disabled: true },
+  // { label: "Infrastructure", icon: "dns", disabled: true },
+  // {
+  //   label: "Settings",
+  //   path: "/settings",
+  //   icon: "settings",
+  //   match: (pathname) => pathname === "/settings",
+  // },
 ];
 
 const footerLinks = [
@@ -64,11 +64,11 @@ export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-50 flex h-screen w-[240px] flex-col border-r border-outline-variant bg-surface px-1 py-1">
       <div className="mb-2 px-5 py-6">
-        <h1 className="font-headline text-[20px] font-semibold uppercase tracking-[0.12em] text-on-surface">
-          Backend Core
+        <h1 className="font-headline text-[16px] font-semibold uppercase tracking-[0.12em] text-on-surface">
+          Job Scheduler
         </h1>
         <p className="mt-1 font-code text-[11px] text-on-surface-variant/70">
-          v4.2.0-stable
+          v0.0.1
         </p>
       </div>
 
@@ -110,13 +110,13 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto space-y-4 px-2 pb-5">
-        <Button
+        {/* <Button
           icon="rocket_launch"
           variant="secondary"
           className="w-full border-on-surface bg-on-surface text-surface hover:bg-white/90"
         >
           Deploy New Node
-        </Button>
+        </Button> */}
 
         <div className="space-y-1">
           {footerLinks.map((link) => (
@@ -126,7 +126,10 @@ export default function Sidebar() {
               className="flex w-full items-center gap-3 px-4 py-2 font-body text-xs text-on-surface-variant transition hover:text-on-surface"
             >
               <span className="material-symbols-outlined text-[18px]">
-                {link.icon}
+                <NavLink to={"/api-docs"}>
+                  {link.icon}
+                </NavLink>
+               {/* <a href="/api-docs"></a> */}
               </span>
               <span>{link.label}</span>
             </button>
