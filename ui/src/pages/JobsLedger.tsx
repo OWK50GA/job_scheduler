@@ -6,6 +6,7 @@ import { Pagination } from "../components/shared/Pagination";
 import { Panel } from "../components/shared/Panel";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { StatusBadge } from "../components/shared/StatusBadge";
+import { useSchedulerEvent } from "../context/SchedulerEvents";
 import { cancelJob, listJobs, retryJob } from "../services/api";
 import type { Job, JobStatus } from "../types";
 
@@ -103,6 +104,47 @@ export default function JobsLedger() {
     setDateTo("");
     setCurrentPage(1);
   }
+
+  // ── SSE — patch allJobs as events arrive ─────────────────────────────
+  // New jobs prepend to the list; existing jobs update in-place.
+  // Cancelled/completed/failed jobs update their row without a refetch.
+  const patchJob = useCallback((job: Job) => {
+    setAllJobs((prev) => {
+      const idx = prev.findIndex((j) => j.id === job.id);
+      if (idx !== -1) {
+        const next = [...prev];
+        next[idx] = job;
+        return next;
+      }
+      // New job — prepend (keeps most-recent first)
+      return [job, ...prev];
+    });
+  }, []);
+
+  useSchedulerEvent(
+    "job.created",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
+  useSchedulerEvent(
+    "job.started",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
+  useSchedulerEvent(
+    "job.completed",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
+  useSchedulerEvent(
+    "job.failed",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
+  useSchedulerEvent(
+    "job.retry_scheduled",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
+  useSchedulerEvent(
+    "job.cancelled",
+    useCallback((e) => patchJob(e.payload.job), [patchJob]),
+  );
 
   // ── Actions ───────────────────────────────────────────────────────────
   async function handleRetry(jobId: string) {

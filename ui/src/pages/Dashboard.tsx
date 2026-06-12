@@ -1,29 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/shared/Button";
-import { MockBadge } from "../components/shared/MockBadge";
 import { PageHeader } from "../components/shared/PageHeader";
 import { Panel } from "../components/shared/Panel";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { StatCard } from "../components/shared/StatCard";
 import { StatusBadge } from "../components/shared/StatusBadge";
-import { useSSE } from "../hooks/useSSE";
+import { useSchedulerEvent, useSSEConnected } from "../context/SchedulerEvents";
 import { getJobStats, listDLQJobs, listJobs, retryJob } from "../services/api";
-import type { Job, JobStats, SSEEvent } from "../types";
+import type { Job, JobStats } from "../types";
 
 const primary = "#0ea5e9";
 const secondary = "#10b981";
 const error = "#ef4444";
-
-// const LOG_LEVELS = ["INFO", "WARN", "DEBUG", "ERROR"] as const;
-
-// const INITIAL_LOGS: string[] = [
-//   `[2025-07-10T08:00:00.000Z] INFO  Node-04 connection established`,
-//   `[2025-07-10T07:59:57.312Z] WARN  Higher than normal latency on us-east-1 queue`,
-//   `[2025-07-10T07:59:55.881Z] DEBUG Task allocated to Worker2`,
-//   `[2025-07-10T07:59:53.000Z] INFO  Completed sync of 42 entities in 12ms`,
-//   `[2025-07-10T07:59:48.002Z] ERROR Redis connectivity timeout — reconnecting`,
-// ];
 
 type TabValue = "ALL_TYPES" | string;
 
@@ -88,7 +77,6 @@ export default function Dashboard() {
     setDlqActionError(null);
     try {
       const updated = await retryJob(dlqJob.id);
-      // Job re-queued — clear it from the insight panel and refresh DLQ
       setDlqJob(null);
       setActiveJobs((prev) =>
         prev.map((j) => (j.id === updated.id ? updated : j)),
@@ -100,22 +88,156 @@ export default function Dashboard() {
     }
   }
 
-  // ── SSE ─────────────────────────────────────────────────────────────────
-  const LOG_LEVELS = ["INFO", "WARN", "DEBUG", "ERROR"] as const;
+  // ── SSE — real connection via SchedulerEventsProvider ────────────────────
+  const connected = useSSEConnected();
   const LOG_BUFFER_SIZE = 12;
 
-  const handleSSEEvent = useCallback((event: SSEEvent) => {
-    const level = LOG_LEVELS[Math.floor(Math.random() * LOG_LEVELS.length)];
-    const ts = new Date().toISOString();
-    const msg = `[${ts}] ${level.padEnd(5)} ${event.type}: job ${event.payload.id} → ${event.payload.status}`;
-    setLogs((prev) => [msg, ...prev].slice(0, LOG_BUFFER_SIZE));
+  // stats.updated → refresh stat cards live
+  useSchedulerEvent(
+    "stats.updated",
+    useCallback((e) => {
+      setStats(e.payload.stats);
+    }, []),
+  );
+
+  // job.created / job.started / job.completed / job.cancelled → patch active jobs table
+  const patchJob = useCallback((job: Job) => {
+    setActiveJobs((prev) => {
+      const exists = prev.some((j) => j.id === job.id);
+      if (exists) return prev.map((j) => (j.id === job.id ? job : j));
+      return [job, ...prev].slice(0, 50);
+    });
   }, []);
 
-  const { connected } = useSSE({
-    mockMode: true,
-    intervalMs: 3000,
-    onEvent: handleSSEEvent,
-  });
+  useSchedulerEvent(
+    "job.created",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.started",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.completed",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.cancelled",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+  useSchedulerEvent(
+    "job.failed",
+    useCallback(
+      (e) => {
+        patchJob(e.payload.job);
+      },
+      [patchJob],
+    ),
+  );
+
+  // job.dlq_entry → update the DLQ insight panel
+  useSchedulerEvent(
+    "job.dlq_entry",
+    useCallback((e) => {
+      setDlqJob(e.payload.job);
+    }, []),
+  );
+
+  // All lifecycle events → append a log line
+  const appendLog = useCallback((line: string) => {
+    setLogs((prev) => [line, ...prev].slice(0, LOG_BUFFER_SIZE));
+  }, []);
+
+  useSchedulerEvent(
+    "job.created",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.created: ${e.payload.job.id} (${e.payload.job.type})`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.started",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.started: ${e.payload.job.id}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.completed",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.completed: ${e.payload.job.id}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.failed",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] WARN  job.failed: ${e.payload.job.id} — ${e.payload.error}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.retry_scheduled",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.retry: ${e.payload.job.id} attempt ${e.payload.attempt}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.cancelled",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] INFO  job.cancelled: ${e.payload.job.id}`,
+        ),
+      [appendLog],
+    ),
+  );
+  useSchedulerEvent(
+    "job.dlq_entry",
+    useCallback(
+      (e) =>
+        appendLog(
+          `[${new Date().toISOString()}] ERROR job.dlq_entry: ${e.payload.job.id} — ${e.payload.error}`,
+        ),
+      [appendLog],
+    ),
+  );
 
   // ── Derived values ───────────────────────────────────────────────────────
   const displayJobs =
@@ -128,14 +250,21 @@ export default function Dashboard() {
       <PageHeader
         eyebrow="Observability"
         title="Backend Core Dashboard"
-        description="High-density operational overview for the scheduler, worker activity, DLQ inspection, and live mock telemetry."
+        description="High-density operational overview for the scheduler, worker activity, DLQ inspection, and live telemetry."
         badges={
-          <>
-            <MockBadge
-              label={connected ? "Frontend SSE Mock" : "SSE Reconnecting"}
-              tone={connected ? "info" : "danger"}
+          <span
+            className={[
+              "inline-flex items-center gap-1.5 rounded border px-2 py-1 font-body text-[10px] font-semibold uppercase tracking-wider",
+              connected
+                ? "border-secondary/40 bg-secondary/10 text-secondary"
+                : "border-error/40 bg-error/10 text-error",
+            ].join(" ")}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-secondary" : "bg-error"}`}
             />
-          </>
+            {connected ? "SSE Connected" : "SSE Reconnecting"}
+          </span>
         }
       />
 
@@ -433,7 +562,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Live System Logs (SSE mock — untouched) ──────────────────────── */}
+      {/* ── Live System Logs ─────────────────────────────────────────────── */}
       <Panel>
         <div className="flex flex-col gap-3 border-b border-outline-variant px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex items-center gap-2">
@@ -444,13 +573,19 @@ export default function Dashboard() {
               Live System Logs
             </h2>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <MockBadge
-              label={connected ? "Frontend SSE Mock" : "SSE Reconnecting"}
-              tone={connected ? "info" : "danger"}
+          <span
+            className={[
+              "inline-flex items-center gap-1.5 rounded border px-2 py-1 font-body text-[10px] font-semibold uppercase tracking-wider",
+              connected
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-outline-variant bg-surface-container-low text-on-surface-variant",
+            ].join(" ")}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-primary" : "bg-outline"}`}
             />
-            <MockBadge label="Mock Logs" />
-          </div>
+            {connected ? "Live" : "Disconnected"}
+          </span>
         </div>
         <div className="app-code-block m-4 h-48 overflow-y-auto p-4 sm:m-5">
           <div className="space-y-1 font-code text-[11px] leading-5">

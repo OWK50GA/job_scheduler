@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { DatabaseClient } from "../db";
+import { publish } from "../events/publisher";
 import { InsertJobInput, JobQueryOptions, JobStatus } from "../types";
 import {
   CreateJobSchema,
@@ -56,6 +57,19 @@ export async function createJob(
     if (!job) {
       throw new AppError(500, "Failed to create job");
     }
+
+    // Notify all SSE clients that a new job has been queued
+    publish({ type: "job.created", payload: { job } });
+
+    // Stats change — push updated counts to the dashboard
+    dbClient
+      .getJobStats()
+      .then((stats) => {
+        publish({ type: "stats.updated", payload: { stats } });
+      })
+      .catch(() => {
+        /* non-critical */
+      });
 
     return res.status(201).json({
       status: "success",
@@ -201,6 +215,16 @@ export async function cancelJob(
       );
     }
 
+    publish({ type: "job.cancelled", payload: { job: cancelledJob } });
+    dbClient
+      .getJobStats()
+      .then((stats) => {
+        publish({ type: "stats.updated", payload: { stats } });
+      })
+      .catch(() => {
+        /* non-critical */
+      });
+
     return res.status(200).json({
       status: "success",
       data: cancelledJob,
@@ -242,6 +266,17 @@ export async function manualRetryJob(
         `Your request conflicts with the current resource state`,
       );
     }
+
+    // Re-queued from DLQ — treat as a new job.created so the stream reflects it
+    publish({ type: "job.created", payload: { job: retriedJob } });
+    dbClient
+      .getJobStats()
+      .then((stats) => {
+        publish({ type: "stats.updated", payload: { stats } });
+      })
+      .catch(() => {
+        /* non-critical */
+      });
 
     return res.status(200).json({
       status: "success",

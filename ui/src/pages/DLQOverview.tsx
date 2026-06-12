@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bar,
@@ -14,6 +14,7 @@ import { PageHeader } from "../components/shared/PageHeader";
 import { Pagination } from "../components/shared/Pagination";
 import { Panel } from "../components/shared/Panel";
 import { StatCard } from "../components/shared/StatCard";
+import { useSchedulerEvent } from "../context/SchedulerEvents";
 import { getJobStats, listDLQJobs } from "../services/api";
 import type { Job, JobStats } from "../types";
 
@@ -26,54 +27,86 @@ function formatFailedAt(isoString: string) {
 export default function DLQOverview() {
   const navigate = useNavigate();
 
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [total, setTotal] = useState(0);
+  // All DLQ jobs fetched at once; pagination is client-side
+  const [allJobs, setAllJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<JobStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<"ALL" | "CRITICAL_ONLY">("ALL");
   const [currentPage, setCurrentPage] = useState(1);
 
-  async function load(page: number) {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
+      // Fetch up to 50 DLQ jobs + current stats in parallel
       const [dlqRes, statsRes] = await Promise.all([
-        listDLQJobs(page, PAGE_SIZE),
+        listDLQJobs(1, 50),
         getJobStats(),
       ]);
-      setJobs(dlqRes.data);
-      setTotal(dlqRes.meta.total);
+      setAllJobs(dlqRes.data);
       setStats(statsRes);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    load(currentPage);
-  }, [currentPage]);
+    load();
+  }, [load]);
 
-  // Top error types — computed from the current page of loaded jobs.
-  // Groups by job.type and counts occurrences.
+  // ── SSE ───────────────────────────────────────────────────────────────────
+  // New DLQ entry → prepend to list
+  useSchedulerEvent(
+    "job.dlq_entry",
+    useCallback((e) => {
+      setAllJobs((prev) => {
+        // Avoid duplicates if already present
+        if (prev.some((j) => j.id === e.payload.job.id)) return prev;
+        return [e.payload.job, ...prev];
+      });
+    }, []),
+  );
+
+  // Job re-queued from DLQ (manual retry emits job.created) → remove from list
+  useSchedulerEvent(
+    "job.created",
+    useCallback((e) => {
+      setAllJobs((prev) => prev.filter((j) => j.id !== e.payload.job.id));
+    }, []),
+  );
+
+  // Stats update → refresh counters
+  useSchedulerEvent(
+    "stats.updated",
+    useCallback((e) => {
+      setStats(e.payload.stats);
+    }, []),
+  );
+
+  // ── Derived state ─────────────────────────────────────────────────────────
+  const filteredJobs = useMemo(
+    () =>
+      activeTab === "CRITICAL_ONLY"
+        ? allJobs.filter((j) => j.priority === 1)
+        : allJobs,
+    [allJobs, activeTab],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredJobs.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pageStart = (safeCurrentPage - 1) * PAGE_SIZE;
+  const pageJobs = filteredJobs.slice(pageStart, pageStart + PAGE_SIZE);
+
   const topErrorTypes = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const job of jobs) {
+    for (const job of allJobs) {
       counts[job.type] = (counts[job.type] ?? 0) + 1;
     }
     return Object.entries(counts)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
-  }, [jobs]);
-
-  const filteredJobs =
-    activeTab === "CRITICAL_ONLY"
-      ? jobs.filter((job) => job.priority === 1)
-      : jobs;
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const pageStart = (safeCurrentPage - 1) * PAGE_SIZE;
+  }, [allJobs]);
 
   return (
     <div className="space-y-6">
@@ -82,11 +115,7 @@ export default function DLQOverview() {
         title="Dead Letter Queue"
         description="Jobs that have exhausted all retry attempts. Investigate the error, fix the root cause, then retry or purge."
         actions={
-          <Button
-            icon="refresh"
-            variant="secondary"
-            onClick={() => load(currentPage)}
-          >
+          <Button icon="refresh" variant="secondary" onClick={load}>
             Refresh
           </Button>
         }
@@ -155,7 +184,8 @@ export default function DLQOverview() {
               Investigation Queue
             </h2>
             <p className="font-body text-sm text-on-surface-variant">
-              {total} job{total !== 1 ? "s" : ""} awaiting investigation
+              {filteredJobs.length} job{filteredJobs.length !== 1 ? "s" : ""}{" "}
+              awaiting investigation
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -224,7 +254,7 @@ export default function DLQOverview() {
                   </td>
                 </tr>
               ) : (
-                filteredJobs.map((job) => (
+                pageJobs.map((job) => (
                   <tr
                     key={job.id}
                     className="transition hover:bg-surface-container-highest/20"
@@ -266,8 +296,9 @@ export default function DLQOverview() {
 
         <div className="flex flex-col gap-3 border-t border-outline-variant bg-surface-container-low px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <span className="font-body text-sm text-on-surface-variant">
-            Showing {total === 0 ? 0 : pageStart + 1}–
-            {Math.min(pageStart + PAGE_SIZE, total)} of {total}
+            Showing {filteredJobs.length === 0 ? 0 : pageStart + 1}–
+            {Math.min(pageStart + PAGE_SIZE, filteredJobs.length)} of{" "}
+            {filteredJobs.length}
           </span>
           <Pagination
             currentPage={safeCurrentPage}

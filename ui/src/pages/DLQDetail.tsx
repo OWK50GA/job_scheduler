@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "../components/shared/Button";
 import { Panel } from "../components/shared/Panel";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
+import { useSchedulerEvent } from "../context/SchedulerEvents";
 import { getJob, getJobAttempts, purgeJob, retryJob } from "../services/api";
 import type { Job, JobAttempt } from "../types";
 
@@ -41,6 +42,55 @@ export default function DLQDetail() {
       )
       .finally(() => setLoading(false));
   }, [id]);
+
+  // ── SSE — minimal: only watch this specific job ───────────────────────
+  // When the job is retried (manual retry emits job.created with reset
+  // attempt_count), update the displayed job state so the page reflects
+  // the reset without requiring a manual reload.
+  useSchedulerEvent(
+    "job.created",
+    useCallback(
+      (e) => {
+        if (e.payload.job.id !== id) return;
+        setJob(e.payload.job);
+        // Re-fetch attempts since they were reset on manual retry
+        if (id)
+          getJobAttempts(id)
+            .then(setAttempts)
+            .catch(() => {});
+      },
+      [id],
+    ),
+  );
+
+  // Also patch if the job transitions while the detail page is open
+  useSchedulerEvent(
+    "job.started",
+    useCallback(
+      (e) => {
+        if (e.payload.job.id === id) setJob(e.payload.job);
+      },
+      [id],
+    ),
+  );
+  useSchedulerEvent(
+    "job.completed",
+    useCallback(
+      (e) => {
+        if (e.payload.job.id === id) setJob(e.payload.job);
+      },
+      [id],
+    ),
+  );
+  useSchedulerEvent(
+    "job.failed",
+    useCallback(
+      (e) => {
+        if (e.payload.job.id === id) setJob(e.payload.job);
+      },
+      [id],
+    ),
+  );
 
   if (loading) {
     return (
