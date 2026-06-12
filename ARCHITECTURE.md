@@ -187,32 +187,46 @@ _Section reserved. The alternative scheduling algorithm implementation is pendin
 
 ---
 
-## 6.0 Alternative Scheduling Algorithm
+## 6.0 Alternative Scheduling Algorithm: Skip List
 
-### 6.1 _[To be completed]_
+### 6.1 Description
 
-_Section reserved. The alternative algorithm name, description, and implementation will be documented here once implemented._
+A **min-heap** is a complete binary tree stored as a flat array. Every parent node has a score ≤ its children's scores, so the most urgent job always sits at index 0. Two array operations maintain the invariant: `siftUp` after insert (walk new element up until its parent is smaller) and `siftDown` after pop (move the displaced last element down until both children are larger). Because all nodes live in a single contiguous array, traversal is cache-friendly.
+
+A **skip list** is a sorted linked list with multiple stacked express lanes. Level 0 holds every node in sorted order. Each higher level is a sparser subset, chosen at insert time by repeated coin-flips (p = 0.5, up to `MAX_LEVEL = 16`). Walking down levels to find the insertion point gives O(log n) expected time. The minimum element is always `head.forward[0]` — a single pointer dereference, O(1).
+
+Both structures use the same score function (`priority` minus an aging bonus) so ordering decisions are equivalent — the only variable being benchmarked is structural cost. The implementation lives in `src/worker/skip-list-scheduler.ts` and satisfies the same `JobScheduler` interface as `MinHeap`, making them drop-in replacements for each other.
 
 ### 6.2 Comparison with Min-Heap
 
-| Operation           | Min-Heap     | Alternative |
-| ------------------- | ------------ | ----------- |
-| Insert              | O(log n)     | _TBD_       |
-| Get next            | O(log n)     | _TBD_       |
-| Peek                | O(1)         | _TBD_       |
-| Duplicate detection | O(1) via Set | _TBD_       |
-| Memory overhead     | O(n)         | _TBD_       |
+| Operation           | Min-Heap                      | Skip List                          |
+| ------------------- | ----------------------------- | ---------------------------------- |
+| Insert              | O(log n) — array sift         | O(log n) expected — pointer walk   |
+| Pop (get next)      | O(log n) — siftDown           | O(log n) expected — re-link levels |
+| Peek                | O(1)                          | O(1) — always `head.forward[0]`    |
+| Duplicate detection | O(1) via Set                  | O(1) via Set                       |
+| Memory overhead     | O(n) flat array               | O(n · MAX_LEVEL) pointer nodes     |
+| In-order traversal  | Requires full drain           | Free — walk level 0                |
+| Implementation      | Deterministic                 | Probabilistic (randomised levels)  |
 
-**10k jobs benchmark**
+**Benchmark — median of 15 runs, Node.js v24, identical job set for both schedulers**
 
-_Results and benchmark script to be documented once the alternative algorithm is implemented._
+Jobs have randomised priorities (1–3) and `created_at` values spread over ±2 hours so the aging bonus produces varied scores.
 
-The benchmark script will:
+| N      | Operation | MinHeap   | SkipList  | Winner   |
+| ------ | --------- | --------- | --------- | -------- |
+| 1,000  | insert    | 1.07 ms   | 2.98 ms   | MinHeap  |
+| 1,000  | drain     | 3.49 ms   | 0.31 ms   | SkipList |
+| 5,000  | insert    | 5.69 ms   | 20.84 ms  | MinHeap  |
+| 5,000  | drain     | 30.24 ms  | 0.31 ms   | SkipList |
+| 10,000 | insert    | 13.67 ms  | 48.85 ms  | MinHeap  |
+| 10,000 | drain     | 74.13 ms  | 1.03 ms   | SkipList |
 
-1. Seed the database with 10,000 `pending` jobs across varying priorities
-2. Run each scheduler in isolation, measuring time-to-first-job and total drain time
-3. Record insert and pop times at N = 100, 1000, 5000, 10000
-4. Report wall-clock throughput (jobs/second)
+MinHeap wins on insert (~2–4× faster) because sifting up a contiguous array is cache-friendly and allocation-free. SkipList wins dramatically on drain (~30–70× faster) because pop is pure pointer relinking at the head — no siftDown traversal. The heap's drain time also inflates because its score function re-evaluates `Date.now()` at each comparison, meaning scores shift mid-drain.
+
+**Which one the worker uses:** `MinHeap`. The worker pops one job per tick and never fully drains the structure in a single pass, so the drain gap is irrelevant. Insert performance is what matters for the 30-second heap feeder loop, and MinHeap wins there.
+
+To reproduce: `pnpm tsx src/scripts/benchmark-schedulers.ts`
 
 ---
 
