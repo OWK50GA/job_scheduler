@@ -141,7 +141,7 @@ export default function DLQDetail() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `job-${job.id}-payload.json`;
+    a.download = `job-${job?.id}-payload.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -150,7 +150,7 @@ export default function DLQDetail() {
     setRetrying(true);
     setRetryError(null);
     try {
-      await retryJob(job.id);
+      await retryJob(job!.id);
       navigate("/jobs/dlq");
     } catch (err) {
       setRetryError(err instanceof Error ? err.message : "Retry failed");
@@ -167,7 +167,7 @@ export default function DLQDetail() {
     setPurging(true);
     setPurgeError(null);
     try {
-      await purgeJob(job.id);
+      await purgeJob(job!.id);
       navigate("/jobs/dlq");
     } catch (err) {
       setPurgeError(err instanceof Error ? err.message : "Purge failed");
