@@ -1,6 +1,7 @@
 import { DatabaseClient } from "../db";
 import { publish } from "../events/publisher";
 import { Job, JobStatus } from "../types";
+import { envConfig } from "../config/env";
 import { sendEmailHandler } from "./handlers";
 import { logJobEvent } from "./logger";
 import { JobHandler } from "./types";
@@ -16,15 +17,48 @@ const dbClient = new DatabaseClient();
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch updated stats and publish a stats.updated event.
- * Fire-and-forget — errors are logged by the publisher, never thrown.
+ * Fetch updated stats, publish a stats.updated event, and — if the DLQ count
+ * has just crossed the configured threshold — create a send_email alert job.
+ *
+ * "Just crossed" means this call tips the count to exactly the threshold so
+ * we don't flood the queue with repeated alerts on every subsequent DLQ entry.
+ *
+ * Fire-and-forget — errors are logged but never thrown.
  */
 async function publishStats(): Promise<void> {
   try {
     const stats = await dbClient.getJobStats();
     publish({ type: "stats.updated", payload: { stats } });
+
+    const threshold = envConfig.DLQ_ALERT_THRESHOLD;
+
+    if (stats.dlq === threshold) {
+      const alertJob = await dbClient.insertJob({
+        type: "send_email",
+        payload: {
+          to: envConfig.DLQ_ALERT_EMAIL,
+          from: "noreply@job-scheduler.internal",
+          subject: `[ALERT] DLQ threshold reached: ${stats.dlq} jobs`,
+          html: `
+            <p>The Dead Letter Queue has reached <strong>${stats.dlq} jobs</strong>,
+            which equals the configured alert threshold of ${threshold}.</p>
+            <p>Please investigate the failed jobs and take action.</p>
+          `,
+        },
+        priority: 1,
+      });
+
+      logJobEvent({
+        jobId: alertJob.id,
+        event: "job_created",
+        message: `DLQ alert job created — threshold of ${threshold} reached (dlq=${stats.dlq})`,
+        meta: { dlqCount: stats.dlq, threshold, alertJobId: alertJob.id },
+      });
+
+      publish({ type: "job.created", payload: { job: alertJob } });
+    }
   } catch {
-    // stats fetch failure should not affect job processing
+    // stats fetch or alert job creation failure should not affect job processing
   }
 }
 
