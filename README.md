@@ -4,18 +4,18 @@ A background job processing system built with Node.js, Express, PostgreSQL, and 
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js 22 + TypeScript |
-| API server | Express 4 |
-| Database | PostgreSQL 16 (via `pg`) |
-| Pub/sub | Redis (`ioredis`) |
-| Validation | Zod v4 |
-| Logging | Pino + pino-http |
-| API docs | Swagger UI (`swagger-jsdoc`) |
-| Testing | Vitest + Supertest |
-| UI | React 19 + Vite + Tailwind CSS v4 |
-| Package manager | pnpm (monorepo workspace) |
+| Layer           | Technology                        |
+| --------------- | --------------------------------- |
+| Runtime         | Node.js 22 + TypeScript           |
+| API server      | Express 4                         |
+| Database        | PostgreSQL 16 (via `pg`)          |
+| Pub/sub         | Redis (`ioredis`)                 |
+| Validation      | Zod v4                            |
+| Logging         | Pino + pino-http                  |
+| API docs        | Swagger UI (`swagger-jsdoc`)      |
+| Testing         | Vitest + Supertest                |
+| UI              | React 19 + Vite + Tailwind CSS v4 |
+| Package manager | pnpm (monorepo workspace)         |
 
 ## Project Structure
 
@@ -125,17 +125,17 @@ http://localhost:3001/api-docs.json
 
 All routes are prefixed with `/api/v1`.
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/jobs` | Create a new job |
-| `GET` | `/jobs` | List jobs with filters and pagination |
-| `GET` | `/jobs/stats` | Job counts by status |
-| `GET` | `/jobs/dlq` | Dead-letter queue jobs |
-| `GET` | `/jobs/:id` | Get a single job by ID |
-| `GET` | `/jobs/:id/attempts` | Attempt history for a job |
-| `POST` | `/jobs/:id/cancel` | Cancel a pending or processing job |
-| `POST` | `/jobs/:id/retry` | Re-queue a DLQ job |
-| `DELETE` | `/jobs/:id/purge` | Permanently delete a DLQ job |
+| Method   | Path                 | Description                           |
+| -------- | -------------------- | ------------------------------------- |
+| `POST`   | `/jobs`              | Create a new job                      |
+| `GET`    | `/jobs`              | List jobs with filters and pagination |
+| `GET`    | `/jobs/stats`        | Job counts by status                  |
+| `GET`    | `/jobs/dlq`          | Dead-letter queue jobs                |
+| `GET`    | `/jobs/:id`          | Get a single job by ID                |
+| `GET`    | `/jobs/:id/attempts` | Attempt history for a job             |
+| `POST`   | `/jobs/:id/cancel`   | Cancel a pending or processing job    |
+| `POST`   | `/jobs/:id/retry`    | Re-queue a DLQ job                    |
+| `DELETE` | `/jobs/:id/purge`    | Permanently delete a DLQ job          |
 
 ### Create job — `POST /api/v1/jobs`
 
@@ -155,14 +155,14 @@ All routes are prefixed with `/api/v1`.
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `type` | string | ✓ | Handler type — must match a registered handler |
-| `payload` | object | ✓ | Data the handler needs to execute |
-| `priority` | `1\|2\|3` | ✓ | `1` = high, `2` = medium, `3` = low |
-| `scheduled_at` | number | — | Unix ms timestamp; must be in the future if provided |
-| `recur_interval` | string | — | `every_1_minute` / `every_5_minutes` / `every_1_hour` |
-| `depends_on` | UUID | — | Job ID that must complete before this one runs |
+| Field            | Type      | Required | Description                                           |
+| ---------------- | --------- | -------- | ----------------------------------------------------- |
+| `type`           | string    | ✓        | Handler type — must match a registered handler        |
+| `payload`        | object    | ✓        | Data the handler needs to execute                     |
+| `priority`       | `1\|2\|3` | ✓        | `1` = high, `2` = medium, `3` = low                   |
+| `scheduled_at`   | number    | —        | Unix ms timestamp; must be in the future if provided  |
+| `recur_interval` | string    | —        | `every_1_minute` / `every_5_minutes` / `every_1_hour` |
+| `depends_on`     | UUID      | —        | Job ID that must complete before this one runs        |
 
 ### List jobs — `GET /api/v1/jobs`
 
@@ -218,14 +218,14 @@ pnpm benchmark
 
 Results on this machine (Node.js v24):
 
-| N | Operation | MinHeap | SkipList | Winner |
-|---|---|---|---|---|
-| 1,000 | insert | 1.07 ms | 2.98 ms | MinHeap |
-| 1,000 | drain | 3.49 ms | 0.31 ms | SkipList |
-| 5,000 | insert | 5.69 ms | 20.84 ms | MinHeap |
-| 5,000 | drain | 30.24 ms | 0.31 ms | SkipList |
-| 10,000 | insert | 13.67 ms | 48.85 ms | MinHeap |
-| 10,000 | drain | 74.13 ms | 1.03 ms | SkipList |
+| N      | Operation | MinHeap  | SkipList | Winner   |
+| ------ | --------- | -------- | -------- | -------- |
+| 1,000  | insert    | 1.07 ms  | 2.98 ms  | MinHeap  |
+| 1,000  | drain     | 3.49 ms  | 0.31 ms  | SkipList |
+| 5,000  | insert    | 5.69 ms  | 20.84 ms | MinHeap  |
+| 5,000  | drain     | 30.24 ms | 0.31 ms  | SkipList |
+| 10,000 | insert    | 13.67 ms | 48.85 ms | MinHeap  |
+| 10,000 | drain     | 74.13 ms | 1.03 ms  | SkipList |
 
 MinHeap wins on insert (2–4×). SkipList wins on full drain (30–70×). The worker never fully drains the structure in a single pass — it pops one job per tick — so insert speed is what matters in practice.
 
@@ -236,6 +236,7 @@ MinHeap wins on insert (2–4×). SkipList wins on full drain (30–70×). The w
 The worker runs as a separate Node.js process (`src/worker/index.ts`). It never shares memory with the API server — they communicate only through PostgreSQL and Redis.
 
 On startup the worker:
+
 1. Fetches all currently due jobs from the DB and loads them into the heap
 2. Starts the **poll loop** — pops a job from the heap, claims it in the DB with `SELECT ... FOR UPDATE SKIP LOCKED`, and executes it
 3. Starts the **heap feeder** (every 30s) — re-fetches due jobs to pick up anything created since startup
@@ -258,6 +259,7 @@ Event types: `job.created`, `job.started`, `job.completed`, `job.failed`, `job.c
 The React operations console lives in `ui/`. It connects to the API over HTTP and opens one SSE connection per session to receive live updates without polling.
 
 Pages:
+
 - **Dashboard** — stat cards, active jobs stream, DLQ insight, node health, live log feed
 - **Jobs Ledger** — filterable, paginated table of all jobs with cancel/retry actions
 - **Create Job** — form to manually submit a job
