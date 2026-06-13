@@ -254,7 +254,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Observability"
-        title="Backend Core Dashboard"
+        title="Job Scheduler Dashboard"
         description="High-density operational overview for the scheduler, worker activity, DLQ inspection, and live telemetry."
         badges={
           <span
@@ -262,15 +262,19 @@ export default function Dashboard() {
               "inline-flex items-center gap-1.5 rounded border px-2 py-1 font-body text-[10px] font-semibold uppercase tracking-wider",
               connected
                 ? "border-secondary/40 bg-secondary/10 text-black bg-green-400"
-                : reconnecting ?
-                    "border-orange-200 bg-orange-400 text-black"
-                    : "border-error/40 bg-red-400 text-black",
+                : reconnecting
+                  ? "border-orange-200 bg-orange-400 text-black"
+                  : "border-error/40 bg-red-400 text-black",
             ].join(" ")}
           >
             <span
               className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-secondary" : "bg-error"}`}
             />
-            {connected ? "SSE Connected" : reconnecting ? "SSE Reconnecting" : "SSE Disconnected"}
+            {connected
+              ? "SSE Connected"
+              : reconnecting
+                ? "SSE Reconnecting"
+                : "SSE Disconnected"}
           </span>
         }
       />

@@ -323,6 +323,7 @@ export default function JobsLedger() {
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3 text-center">Priority</th>
                 <th className="px-4 py-3">Submitted At</th>
+                <th className="px-4 py-3">Scheduled At</th>
                 <th className="px-4 py-3">Runtime</th>
                 <th className="px-4 py-3">Retries</th>
                 <th className="px-4 py-3">Status</th>
@@ -378,6 +379,10 @@ export default function JobsLedger() {
                       {/* Submitted At */}
                       <td className="px-4 py-3 font-body text-xs text-on-surface-variant">
                         {formatSubmittedAt(job.created_at)}
+                      </td>
+
+                      <td className="px-4 py-3 font-body text-xs text-on-surface-variant">
+                        {formatSubmittedAt(job.scheduled_at)}
                       </td>
 
                       {/* Runtime */}

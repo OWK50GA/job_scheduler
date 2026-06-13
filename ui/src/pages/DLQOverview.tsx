@@ -72,7 +72,9 @@ export default function DLQOverview() {
         // Trigger a stats refresh
         setFetchTick((t) => t + 1);
       } catch (err) {
-        setEmptyError(err instanceof Error ? err.message : "Failed to empty DLQ");
+        setEmptyError(
+          err instanceof Error ? err.message : "Failed to empty DLQ",
+        );
         setEmptyState("error");
       }
     }
@@ -376,10 +378,7 @@ export default function DLQOverview() {
 
           <div className="flex items-center gap-2">
             {emptyState === "confirming" && (
-              <Button
-                variant="ghost"
-                onClick={() => setEmptyState("idle")}
-              >
+              <Button variant="ghost" onClick={() => setEmptyState("idle")}>
                 Cancel
               </Button>
             )}
