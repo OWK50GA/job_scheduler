@@ -117,7 +117,9 @@ export function SchedulerEventsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <SchedulerEventsContext.Provider value={{ connected, reconnecting, subscribe }}>
+    <SchedulerEventsContext.Provider
+      value={{ connected, reconnecting, subscribe }}
+    >
       {children}
     </SchedulerEventsContext.Provider>
   );

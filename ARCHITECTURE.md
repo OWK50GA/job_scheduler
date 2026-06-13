@@ -236,12 +236,12 @@ To reproduce: `pnpm tsx src/scripts/benchmark-schedulers.ts`
 
 **Heap is not persisted.** If the worker process crashes, all jobs in the heap are lost from memory. They are not lost from the database — the next worker start will re-fetch them via `fetchDueJobs()`. The window of invisibility is at most one heap feeder interval (30 seconds) plus the time for a zombie reaper cycle.
 
-**No cycle detection in DAG.** The `job_dependencies` schema enforces no self-loops (`CHECK (job_id <> depends_on_id)`) but does not detect multi-hop cycles (A depends on B, B depends on A). Application code must prevent this at insertion time. A cyclic dependency will cause both jobs to wait indefinitely.
+**No cycle detection in DAG.** The `job_dependencies` schema enforces no self-loops (`CHECK (job_id <> depends_on_id)`) but does not detect multi-hop cycles (A depends on B, B depends on A). Application code must prevent this at insertion time. A cyclic dependency will cause both jobs to wait indefinitely. There's no retroactive editing of jobs however (that would take a new PATCH job for it to be possible), so the current implementation is partially protected.
 
-**DLQ threshold alert is defined but not yet sent.** The threshold check logic and email dispatch are on the implementation roadmap.
+**DLQ threshold alert is defined but not yet sent.** The threshold check logic and email dispatch are not yet implemented.
 
 **Recurring intervals are static.** The three supported intervals (`every_1_minute`, `every_5_minutes`, `every_1_hour`) are hardcoded in `src/utils.ts`. Arbitrary cron-style intervals are not supported.
 
-**Handler registry is static.** Handlers are registered at startup in a plain object. Adding a new job type requires a code change and a worker restart. Dynamic handler registration is not supported.
+**Handler registry is static.** Handlers are registered at startup in a plain object. Adding a new job type requires a code change and a worker restart. Dynamic handler registration is not supported. Dynamic handler registration support is a would make this usable.
 
 **Redis is a new dependency.** Adding Redis as a required infrastructure component introduces an additional failure mode. If Redis is unavailable, `publish()` calls fail silently (the error is logged as a warning, job processing is not interrupted), but the SSE stream will not receive events until Redis reconnects.
