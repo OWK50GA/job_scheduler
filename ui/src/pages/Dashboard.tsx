@@ -327,7 +327,7 @@ export default function Dashboard() {
           />
           <StatCard
             label="Failed / DLQ"
-            value={stats ? `${stats.failed} / ${stats.dlq}` : "—"}
+            value={stats ? `${stats.failed}` : "—"}
             accentColor={error}
             icon="warning"
           />
