@@ -154,9 +154,7 @@ async function seed() {
       tmpl.type,
     );
     const recur_interval =
-      canRecur && i % 5 === 0
-        ? RECUR_INTERVALS[i % 3]
-        : null;
+      canRecur && i % 5 === 0 ? RECUR_INTERVALS[i % 3] : null;
 
     valuePlaceholders.push(
       `($${p++}, $${p++}::jsonb, $${p++}, $${p++}::timestamptz, $${p++})`,
