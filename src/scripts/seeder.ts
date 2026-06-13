@@ -138,7 +138,7 @@ async function seed() {
 
   console.log(`Seeding ${TOTAL} jobs...`);
 
-  // Build all rows as a single multi-value INSERT for speed
+  // ── Phase 1: bulk-insert the base jobs ───────────────────────────────────
   const valuePlaceholders: string[] = [];
   const values: unknown[] = [];
   let p = 1;
@@ -155,7 +155,7 @@ async function seed() {
     );
     const recur_interval =
       canRecur && i % 5 === 0
-        ? RECUR_INTERVALS[i % 3] // picks every_1_minute / every_5_minutes / every_1_hour
+        ? RECUR_INTERVALS[i % 3]
         : null;
 
     valuePlaceholders.push(
@@ -171,15 +171,67 @@ async function seed() {
     );
   }
 
-  const query = `
+  const insertQuery = `
     INSERT INTO jobs (type, payload, priority, scheduled_at, recur_interval)
     VALUES ${valuePlaceholders.join(", ")}
+    RETURNING id
   `;
 
-  await pool.query(query, values);
-  await pool.end();
+  const insertResult = await pool.query<{ id: string }>(insertQuery, values);
+  const jobIds = insertResult.rows.map((r) => r.id);
 
-  console.log(`Done. Inserted ${TOTAL} jobs.`);
+  console.log(`Inserted ${TOTAL} jobs.`);
+
+  // ── Phase 2: insert dependency chains ───────────────────────────────────
+  // Create ~10 dependency chains of varying depth to demonstrate DAG scheduling.
+  // Each chain is a linear sequence: job[n] depends on job[n-1].
+  // We use jobs from the second half of the inserted batch so the first half
+  // can still run freely and the queue doesn't stall completely.
+
+  type DepEdge = { job_id: string; depends_on_id: string };
+  const depEdges: DepEdge[] = [];
+
+  // Chain 1: jobs 80 → 81 → 82 (3-hop)
+  depEdges.push({ job_id: jobIds[80], depends_on_id: jobIds[79] });
+  depEdges.push({ job_id: jobIds[81], depends_on_id: jobIds[80] });
+
+  // Chain 2: jobs 84 → 85 → 86 → 87 (4-hop)
+  depEdges.push({ job_id: jobIds[84], depends_on_id: jobIds[83] });
+  depEdges.push({ job_id: jobIds[85], depends_on_id: jobIds[84] });
+  depEdges.push({ job_id: jobIds[86], depends_on_id: jobIds[85] });
+
+  // Chain 3: jobs 90 → 91 (2-hop, simple pair)
+  depEdges.push({ job_id: jobIds[90], depends_on_id: jobIds[89] });
+
+  // Chain 4: jobs 93 → 94 → 95 (3-hop)
+  depEdges.push({ job_id: jobIds[93], depends_on_id: jobIds[92] });
+  depEdges.push({ job_id: jobIds[94], depends_on_id: jobIds[93] });
+
+  // Chain 5: jobs 97 → 98 → 99 → 100 → 101 (5-hop, longest chain)
+  depEdges.push({ job_id: jobIds[97], depends_on_id: jobIds[96] });
+  depEdges.push({ job_id: jobIds[98], depends_on_id: jobIds[97] });
+  depEdges.push({ job_id: jobIds[99], depends_on_id: jobIds[98] });
+  depEdges.push({ job_id: jobIds[100], depends_on_id: jobIds[99] });
+
+  if (depEdges.length > 0) {
+    const depPlaceholders = depEdges.map(
+      (_, idx) => `($${idx * 2 + 1}, $${idx * 2 + 2})`,
+    );
+    const depValues = depEdges.flatMap((e) => [e.job_id, e.depends_on_id]);
+
+    await pool.query(
+      `INSERT INTO job_dependencies (job_id, depends_on_id)
+       VALUES ${depPlaceholders.join(", ")}`,
+      depValues,
+    );
+
+    console.log(
+      `Inserted ${depEdges.length} dependency edges across 5 chains.`,
+    );
+  }
+
+  await pool.end();
+  console.log("Done.");
 }
 
 seed().catch((err) => {

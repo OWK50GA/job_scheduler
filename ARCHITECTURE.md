@@ -117,9 +117,19 @@ On each poll loop tick:
 4. The worker calls `claimJobById(jobId)`, which opens a transaction and attempts `SELECT ... FOR UPDATE SKIP LOCKED` on that specific row. If the row is locked (claimed by another worker) or no longer `pending`, the claim returns `null` and the tick continues without processing
 5. On a successful claim, the job's status is updated to `processing` and `started_at` is set within the same transaction
 
-### 4.3 Job Scheduling (Alternative mechanism)
+### 4.3 Job Scheduling (Skip List path)
 
-_Section reserved. The alternative scheduling algorithm implementation is pending._
+The `SkipListScheduler` (`src/worker/skip-list-scheduler.ts`) is a drop-in replacement for `MinHeap`. It implements the same `JobScheduler` interface and uses the identical effective-score function, so ordering decisions are identical — the only difference is the data structure.
+
+A skip list is a sorted linked list with multiple probabilistic express lanes. Level 0 holds every node in ascending score order. Each higher level is a sparse subset chosen at insert time by repeated coin-flips (probability 0.5, up to `MAX_LEVEL = 16`). The minimum element — the most urgent job — is always at `head.forward[0]`, making `peek()` a single pointer dereference (O(1)).
+
+When the scheduler uses the skip list instead of the heap, the job scheduling path is identical except for the in-memory structure:
+
+1. `scheduler.insert(jobs)` walks down from the current top level, finding the sorted insertion position for each new job. The `inList: Set<string>` provides O(1) duplicate protection — the same guard as `MinHeap.inHeap`.
+2. `scheduler.pop()` removes `head.forward[0]` (always the minimum), re-links all levels that pointed to that node, then trims any now-empty top levels. O(log n) expected.
+3. The claim step, processor, retry/DLQ path, and SSE events are unchanged.
+
+**Why MinHeap is used in production:** benchmarks show MinHeap is 2–4× faster on insert because sifting up a contiguous array has better CPU cache locality and no per-node allocation cost. The skip list drains 30–70× faster than the heap because pop requires only pointer relinking with no siftDown traversal, but the worker never drains the full structure in a single pass — it pops one job per tick. Insert speed at the heap feeder interval is what matters, and MinHeap wins there. See section 6.0 for full benchmark results.
 
 ### 4.4 Job Execution (happy path)
 
@@ -162,6 +172,42 @@ _Section reserved. The alternative scheduling algorithm implementation is pendin
    - If the job is `processing`: the update succeeds, status becomes `cancelled`. The processor will detect this on its post-claim re-fetch (`fetchedJob.status === 'cancelled'`) and call `cancelJob()` again to write the final state cleanly, then return without executing the handler
    - If the job is `completed`, `failed`, or already `cancelled`: the `WHERE` clause does not match. The function returns `null`, and the API responds with 409
 4. A `job.cancelled` SSE event and a `stats.updated` event are published to Redis
+
+---
+
+### 4.8 Job Purge (Single)
+
+Purging permanently deletes a single job from the database. It is restricted to DLQ jobs (`status = 'failed' AND attempt_count >= max_retries`) — jobs in any other state cannot be purged.
+
+1. Client sends `DELETE /api/v1/jobs/:id/purge`
+2. The API looks up the job. If it does not exist, returns 404
+3. `purgeJob(id)` executes:
+   ```sql
+   DELETE FROM jobs
+   WHERE id = $1
+     AND status = 'failed'
+     AND attempt_count >= max_retries
+   ```
+   The `job_attempts` and `job_logs` rows are removed automatically via `ON DELETE CASCADE` on the foreign key
+4. If the `WHERE` clause does not match (job exists but is not in the DLQ), the function returns `false` and the API responds with 409
+5. No SSE event is published — purged jobs are gone from the system; any UI listening to the DLQ view simply won't see them on the next refresh
+
+### 4.9 DLQ Empty (Batch Purge)
+
+Emptying the DLQ is a single-statement bulk delete of all jobs matching the DLQ condition. It is the batch equivalent of 4.8.
+
+1. Client sends `DELETE /api/v1/jobs/dlq`
+2. `emptyDLQ()` executes:
+   ```sql
+   DELETE FROM jobs
+   WHERE status = 'failed'
+     AND attempt_count >= max_retries
+   ```
+   All `job_attempts` and `job_logs` rows for every deleted job are CASCADE deleted in the same statement
+3. The function returns `{ deleted: N }` where N is the row count from `pg`'s `rowCount`
+4. The API returns `{ status: "success", data: { deleted: N } }` with HTTP 200
+5. A `stats.updated` event is published to Redis so the dashboard DLQ counter drops to zero in connected browser sessions without a manual refresh
+6. This operation is irreversible. The UI enforces a two-click confirmation (idle → confirming → loading) before calling the endpoint
 
 ---
 

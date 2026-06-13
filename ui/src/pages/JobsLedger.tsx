@@ -356,7 +356,7 @@ export default function JobsLedger() {
                     <tr key={job.id} className="transition hover:bg-slate-600">
                       {/* Job ID */}
                       <td className="px-4 py-3 font-code text-[12px] text-primary">
-                        {job.id.slice(0, 8)}…
+                        {job.id}
                       </td>
 
                       {/* Type */}
