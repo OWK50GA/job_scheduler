@@ -17,6 +17,7 @@ export type ListenerMap = Map<SSEEventType, Set<Listener>>;
 
 export type SchedulerEventsContextValue = {
   connected: boolean;
+  reconnecting: boolean;
   subscribe: (type: SSEEventType, listener: Listener) => () => void;
 };
 
@@ -27,6 +28,7 @@ export type SchedulerEventsContextValue = {
 export const SchedulerEventsContext =
   createContext<SchedulerEventsContextValue>({
     connected: false,
+    reconnecting: false,
     subscribe: () => () => {},
   });
 

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   cancelJob,
   createJob,
+  emptyDLQ,
   getAllDLQJobs,
   getAllJobs,
   getJobAttempts,
@@ -262,6 +263,45 @@ router.get("/jobs", getAllJobs);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get("/jobs/dlq", getAllDLQJobs);
+
+/**
+ * @swagger
+ * /jobs/dlq:
+ *   delete:
+ *     summary: Empty the dead-letter queue
+ *     description: >
+ *       Permanently deletes ALL jobs in the dead-letter queue
+ *       (status=failed AND attempt_count >= max_retries).
+ *       All associated job_attempts and job_logs are CASCADE deleted.
+ *       This is irreversible — use only when you are certain no DLQ jobs
+ *       require further investigation or retry.
+ *     tags: [Jobs]
+ *     responses:
+ *       200:
+ *         description: DLQ cleared successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     deleted:
+ *                       type: integer
+ *                       description: Number of jobs permanently removed
+ *                       example: 14
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.delete("/jobs/dlq", emptyDLQ);
 
 /**
  * @swagger

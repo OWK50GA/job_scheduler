@@ -15,7 +15,7 @@ import { Pagination } from "../components/shared/Pagination";
 import { Panel } from "../components/shared/Panel";
 import { StatCard } from "../components/shared/StatCard";
 import { useSchedulerEvent } from "../context/useSchedulerEvent";
-import { getJobStats, listDLQJobs } from "../services/api";
+import { emptyDLQ, getJobStats, listDLQJobs } from "../services/api";
 import type { Job, JobStats } from "../types";
 
 const PAGE_SIZE = 10;
@@ -38,6 +38,45 @@ export default function DLQOverview() {
 
   // Increment to trigger a re-fetch from the Refresh button
   const [fetchTick, setFetchTick] = useState(0);
+
+  // ── Empty DLQ ─────────────────────────────────────────────────────────────
+  // Confirm-then-execute pattern: first click arms the button, second executes.
+  const [emptyState, setEmptyState] = useState<
+    "idle" | "confirming" | "loading" | "done" | "error"
+  >("idle");
+  const [emptyError, setEmptyError] = useState<string | null>(null);
+  const [lastDeletedCount, setLastDeletedCount] = useState<number | null>(null);
+
+  // Reset back to idle after showing success/error for 4 seconds
+  useEffect(() => {
+    if (emptyState !== "done" && emptyState !== "error") return;
+    const t = setTimeout(() => setEmptyState("idle"), 4_000);
+    return () => clearTimeout(t);
+  }, [emptyState]);
+
+  const handleEmptyDLQ = useCallback(async () => {
+    if (emptyState === "idle") {
+      // First click: arm the confirm state
+      setEmptyState("confirming");
+      return;
+    }
+    if (emptyState === "confirming") {
+      // Second click: execute
+      setEmptyState("loading");
+      setEmptyError(null);
+      try {
+        const { deleted } = await emptyDLQ();
+        setLastDeletedCount(deleted);
+        setAllJobs([]);
+        setEmptyState("done");
+        // Trigger a stats refresh
+        setFetchTick((t) => t + 1);
+      } catch (err) {
+        setEmptyError(err instanceof Error ? err.message : "Failed to empty DLQ");
+        setEmptyState("error");
+      }
+    }
+  }, [emptyState]);
 
   const load = useCallback(() => {
     setFetchTick((t) => t + 1);
@@ -313,6 +352,62 @@ export default function DLQOverview() {
             onPrev={() => setCurrentPage((p) => Math.max(1, p - 1))}
             onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
           />
+        </div>
+
+        <div className="flex items-center justify-between gap-4 border-t border-outline-variant bg-surface-container-low px-4 py-3 sm:px-5">
+          <div className="flex flex-col gap-1">
+            {emptyState === "confirming" && (
+              <p className="font-body text-xs text-amber-400">
+                This will permanently delete all {allJobs.length} job
+                {allJobs.length !== 1 ? "s" : ""} in the DLQ. Click again to
+                confirm.
+              </p>
+            )}
+            {emptyState === "done" && lastDeletedCount !== null && (
+              <p className="font-body text-xs text-emerald-400">
+                ✓ {lastDeletedCount} job
+                {lastDeletedCount !== 1 ? "s" : ""} permanently removed.
+              </p>
+            )}
+            {emptyState === "error" && emptyError && (
+              <p className="font-body text-xs text-error">{emptyError}</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {emptyState === "confirming" && (
+              <Button
+                variant="ghost"
+                onClick={() => setEmptyState("idle")}
+              >
+                Cancel
+              </Button>
+            )}
+            <Button
+              variant="danger"
+              icon={
+                emptyState === "loading"
+                  ? "hourglass_top"
+                  : emptyState === "confirming"
+                    ? "warning"
+                    : "delete_forever"
+              }
+              disabled={
+                emptyState === "loading" ||
+                emptyState === "done" ||
+                allJobs.length === 0
+              }
+              onClick={handleEmptyDLQ}
+            >
+              {emptyState === "loading"
+                ? "Emptying…"
+                : emptyState === "confirming"
+                  ? "Confirm — delete all"
+                  : emptyState === "done"
+                    ? "Done"
+                    : "Empty Queue"}
+            </Button>
+          </div>
         </div>
       </Panel>
     </div>

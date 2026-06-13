@@ -1,5 +1,4 @@
 import { NavLink, useLocation } from "react-router-dom";
-// import { Button } from "../shared/Button";
 
 type NavItem = {
   label: string;
@@ -39,8 +38,8 @@ const navItems: NavItem[] = [
 ];
 
 const footerLinks = [
-  { label: "Docs", icon: "description" },
-  { label: "Status", icon: "check_circle" },
+  { label: "Docs", icon: "description", href: "/api-docs" },
+  { label: "Status", icon: "check_circle", href: null },
 ];
 
 function itemClassName(active: boolean, disabled = false) {
@@ -119,19 +118,33 @@ export default function Sidebar() {
         </Button> */}
 
         <div className="space-y-1">
-          {footerLinks.map((link) => (
-            <button
-              key={link.label}
-              type="button"
-              className="flex w-full items-center gap-3 px-4 py-2 font-body text-xs text-on-surface-variant transition hover:text-on-surface"
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                <NavLink to={"/api-docs"}>{link.icon}</NavLink>
-                {/* <a href="/api-docs"></a> */}
-              </span>
-              <span>{link.label}</span>
-            </button>
-          ))}
+          {footerLinks.map((link) =>
+            link.href ? (
+              <a
+                key={link.label}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center gap-3 px-4 py-2 font-body text-xs text-on-surface-variant transition hover:text-on-surface"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {link.icon}
+                </span>
+                <span>{link.label}</span>
+              </a>
+            ) : (
+              <button
+                key={link.label}
+                type="button"
+                className="flex w-full items-center gap-3 px-4 py-2 font-body text-xs text-on-surface-variant transition hover:text-on-surface"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {link.icon}
+                </span>
+                <span>{link.label}</span>
+              </button>
+            ),
+          )}
         </div>
 
         <div className="flex items-center gap-3 border-t border-outline-variant px-4 pt-4">

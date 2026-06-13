@@ -199,28 +199,28 @@ Both structures use the same score function (`priority` minus an aging bonus) so
 
 ### 6.2 Comparison with Min-Heap
 
-| Operation           | Min-Heap                      | Skip List                          |
-| ------------------- | ----------------------------- | ---------------------------------- |
-| Insert              | O(log n) — array sift         | O(log n) expected — pointer walk   |
-| Pop (get next)      | O(log n) — siftDown           | O(log n) expected — re-link levels |
-| Peek                | O(1)                          | O(1) — always `head.forward[0]`    |
-| Duplicate detection | O(1) via Set                  | O(1) via Set                       |
-| Memory overhead     | O(n) flat array               | O(n · MAX_LEVEL) pointer nodes     |
-| In-order traversal  | Requires full drain           | Free — walk level 0                |
-| Implementation      | Deterministic                 | Probabilistic (randomised levels)  |
+| Operation           | Min-Heap              | Skip List                          |
+| ------------------- | --------------------- | ---------------------------------- |
+| Insert              | O(log n) — array sift | O(log n) expected — pointer walk   |
+| Pop (get next)      | O(log n) — siftDown   | O(log n) expected — re-link levels |
+| Peek                | O(1)                  | O(1) — always `head.forward[0]`    |
+| Duplicate detection | O(1) via Set          | O(1) via Set                       |
+| Memory overhead     | O(n) flat array       | O(n · MAX_LEVEL) pointer nodes     |
+| In-order traversal  | Requires full drain   | Free — walk level 0                |
+| Implementation      | Deterministic         | Probabilistic (randomised levels)  |
 
 **Benchmark — median of 15 runs, Node.js v24, identical job set for both schedulers**
 
 Jobs have randomised priorities (1–3) and `created_at` values spread over ±2 hours so the aging bonus produces varied scores.
 
-| N      | Operation | MinHeap   | SkipList  | Winner   |
-| ------ | --------- | --------- | --------- | -------- |
-| 1,000  | insert    | 1.07 ms   | 2.98 ms   | MinHeap  |
-| 1,000  | drain     | 3.49 ms   | 0.31 ms   | SkipList |
-| 5,000  | insert    | 5.69 ms   | 20.84 ms  | MinHeap  |
-| 5,000  | drain     | 30.24 ms  | 0.31 ms   | SkipList |
-| 10,000 | insert    | 13.67 ms  | 48.85 ms  | MinHeap  |
-| 10,000 | drain     | 74.13 ms  | 1.03 ms   | SkipList |
+| N      | Operation | MinHeap  | SkipList | Winner   |
+| ------ | --------- | -------- | -------- | -------- |
+| 1,000  | insert    | 1.07 ms  | 2.98 ms  | MinHeap  |
+| 1,000  | drain     | 3.49 ms  | 0.31 ms  | SkipList |
+| 5,000  | insert    | 5.69 ms  | 20.84 ms | MinHeap  |
+| 5,000  | drain     | 30.24 ms | 0.31 ms  | SkipList |
+| 10,000 | insert    | 13.67 ms | 48.85 ms | MinHeap  |
+| 10,000 | drain     | 74.13 ms | 1.03 ms  | SkipList |
 
 MinHeap wins on insert (~2–4× faster) because sifting up a contiguous array is cache-friendly and allocation-free. SkipList wins dramatically on drain (~30–70× faster) because pop is pure pointer relinking at the head — no siftDown traversal. The heap's drain time also inflates because its score function re-evaluates `Date.now()` at each comparison, meaning scores shift mid-drain.
 

@@ -729,6 +729,26 @@ export class DatabaseClient {
   }
 
   /**
+   * Batch-deletes every job in the dead-letter queue in a single statement.
+   *
+   * DLQ is defined as: status = 'failed' AND attempt_count >= max_retries.
+   * CASCADE on job_attempts and job_logs removes all associated rows automatically.
+   *
+   * This is irreversible. The caller (controller) is responsible for any
+   * confirmation gate before invoking this.
+   *
+   * Returns the number of jobs deleted.
+   */
+  async emptyDLQ(): Promise<{ deleted: number }> {
+    const result = await this.pool.query(
+      `DELETE FROM jobs
+       WHERE status = 'failed'
+         AND attempt_count >= max_retries`,
+    );
+    return { deleted: result.rowCount ?? 0 };
+  }
+
+  /**
    * Returns all attempt records for a job, ordered by attempt number ascending.
    * Each row contains the attempt number, error message (if any), duration,
    * and the timestamp when that attempt was made.
