@@ -54,3 +54,10 @@ export function useSchedulerEvent<T extends SSEEventType>(
 export function useSSEConnected(): boolean {
   return useContext(SchedulerEventsContext).connected;
 }
+
+/**
+ * Returns whether the SSE connection is currently attempting to reconnect.
+ */
+export function useSSEReconnecting(): boolean {
+  return useContext(SchedulerEventsContext).reconnecting;
+}

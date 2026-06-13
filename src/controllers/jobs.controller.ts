@@ -348,6 +348,33 @@ export async function purgeJob(
   }
 }
 
+export async function emptyDLQ(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { deleted } = await dbClient.emptyDLQ();
+
+    // Push updated stats so the dashboard reflects the cleared DLQ immediately
+    dbClient
+      .getJobStats()
+      .then((stats) => {
+        publish({ type: "stats.updated", payload: { stats } });
+      })
+      .catch(() => {
+        /* non-critical */
+      });
+
+    return res.status(200).json({
+      status: "success",
+      data: { deleted },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getJobAttempts(
   req: Request,
   res: Response,

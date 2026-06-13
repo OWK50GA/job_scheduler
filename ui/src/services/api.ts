@@ -124,6 +124,15 @@ export async function purgeJob(id: string): Promise<{ id: string }> {
   return body.data;
 }
 
+export async function emptyDLQ(): Promise<{ deleted: number }> {
+  const res = await fetch("/api/v1/jobs/dlq", { method: "DELETE" });
+  const body = await handleResponse<{
+    status: string;
+    data: { deleted: number };
+  }>(res);
+  return body.data;
+}
+
 export async function getJobAttempts(
   id: string,
 ): Promise<import("../types").JobAttempt[]> {
