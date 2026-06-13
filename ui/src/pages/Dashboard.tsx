@@ -9,6 +9,7 @@ import { StatusBadge } from "../components/shared/StatusBadge";
 import {
   useSchedulerEvent,
   useSSEConnected,
+  useSSEReconnecting,
 } from "../context/useSchedulerEvent";
 import { getJobStats, listDLQJobs, listJobs, retryJob } from "../services/api";
 import type { Job, JobStats } from "../types";
@@ -93,6 +94,7 @@ export default function Dashboard() {
 
   // ── SSE — real connection via SchedulerEventsProvider ────────────────────
   const connected = useSSEConnected();
+  const reconnecting = useSSEReconnecting();
   const LOG_BUFFER_SIZE = 12;
 
   // stats.updated → refresh stat cards live
@@ -259,14 +261,16 @@ export default function Dashboard() {
             className={[
               "inline-flex items-center gap-1.5 rounded border px-2 py-1 font-body text-[10px] font-semibold uppercase tracking-wider",
               connected
-                ? "border-secondary/40 bg-secondary/10 text-secondary"
-                : "border-error/40 bg-error/10 text-error",
+                ? "border-secondary/40 bg-secondary/10 text-black bg-green-400"
+                : reconnecting ?
+                    "border-orange-200 bg-orange-400 text-black"
+                    : "border-error/40 bg-red-400 text-black",
             ].join(" ")}
           >
             <span
               className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-secondary" : "bg-error"}`}
             />
-            {connected ? "SSE Connected" : "SSE Reconnecting"}
+            {connected ? "SSE Connected" : reconnecting ? "SSE Reconnecting" : "SSE Disconnected"}
           </span>
         }
       />

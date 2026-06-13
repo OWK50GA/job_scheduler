@@ -29,6 +29,7 @@ const RECONNECT_MAX_MS = 30_000;
 
 export function SchedulerEventsProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
 
   // Listener registry lives in a ref so it never causes re-renders and
   // is stable for the full lifetime of this component.
@@ -80,6 +81,7 @@ export function SchedulerEventsProvider({ children }: { children: ReactNode }) {
       es.onopen = () => {
         attempt = 0;
         setConnected(true);
+        setReconnecting(false);
       };
 
       for (const t of SCHEDULER_EVENT_TYPES) {
@@ -94,6 +96,7 @@ export function SchedulerEventsProvider({ children }: { children: ReactNode }) {
         es = null;
 
         if (!destroyed) {
+          setReconnecting(true);
           const delay = Math.min(
             RECONNECT_BASE_MS * 2 ** attempt,
             RECONNECT_MAX_MS,
@@ -114,7 +117,7 @@ export function SchedulerEventsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <SchedulerEventsContext.Provider value={{ connected, subscribe }}>
+    <SchedulerEventsContext.Provider value={{ connected, reconnecting, subscribe }}>
       {children}
     </SchedulerEventsContext.Provider>
   );
