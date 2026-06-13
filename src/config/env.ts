@@ -17,4 +17,6 @@ export const envConfig = {
   DATABASE_SYNC: process.env.DATABASE_SYNC || false,
   DATABASE_LOGGING: process.env.DATABASE_LOGGING || false,
   DATABASE_SSL: process.env.DATABASE_SSL || false,
+  DLQ_ALERT_THRESHOLD: parseInt(process.env.DLQ_ALERT_THRESHOLD || "30"),
+  DLQ_ALERT_EMAIL: process.env.DLQ_ALERT_EMAIL || "ops@example.com",
 };
