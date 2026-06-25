@@ -1,6 +1,7 @@
 import pino from "pino";
+import { envConfig } from "./config/env";
 
-const isDev = process.env.NODE_ENV !== "production";
+const isDev = envConfig.NODE_ENV !== "production";
 
 export const logger = pino({
   level: isDev ? "debug" : "info",

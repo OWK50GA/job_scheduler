@@ -136,6 +136,7 @@ All routes are prefixed with `/api/v1`.
 | `POST`   | `/jobs/:id/cancel`   | Cancel a pending or processing job    |
 | `POST`   | `/jobs/:id/retry`    | Re-queue a DLQ job                    |
 | `DELETE` | `/jobs/:id/purge`    | Permanently delete a DLQ job          |
+| `DELETE` | `/jobs/empty-dlq`    | Empty the entire DLQ                  |
 
 ### Create job — `POST /api/v1/jobs`
 
